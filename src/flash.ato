@@ -28,7 +28,7 @@ from "mcu.ato" import Capacitor, Resistor
 # Pin mapping from Winbond datasheet W25Q128JV Rev.I
 # ────────────────────────────────────────────────
 component W25Q128JVSIQ:
-    footprint = "Package_SO:SOIC-8_5.23x5.23mm_P1.27mm"
+    footprint = "lib:SOIC-8_5.23x5.23mm_P1.27mm"
     mpn = "W25Q128JVSIQ"
     designator_prefix = "U"
 

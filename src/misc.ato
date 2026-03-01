@@ -60,7 +60,7 @@ module StatusLED:
 # Resonant freq: 2.7kHz, 80dB SPL, coil resistance 12±3Ω.
 # ────────────────────────────────────────────────
 component Buzzer_MLT8530:
-    footprint = "Buzzer_Beeper:Buzzer_SMD_MLT-8530_8.5x8.5mm"
+    footprint = "lib:Buzzer_SMD_MLT-8530_8.5x8.5mm"
     mpn = "MLT-8530"
     designator_prefix = "BZ"
     signal positive ~ pin 1

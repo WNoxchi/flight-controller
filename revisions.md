@@ -16,19 +16,31 @@ The Brave F7 is a reference, not a clone target. Key intentional differences:
 
 ## REV-001: Specify JST connector types for all connectors
 
-**Priority**: High — affects PCB footprints and mechanical fit
+**Status**: Fixed — JST-SH components defined, footprint library prefixes added
 
-The current design defines connector signals but does not specify physical connector types.
-All connectors should be JST-SH 1.0mm pitch (standard for modern FCs):
+Added physical JST-SH 1.0mm SMD connector components (SM0xB-SRSS-TB) with
+KiCad footprints, MPNs, and pin mappings to `src/connectors.ato`. Also fixed
+all footprint identifiers across the project to use proper KiCad library
+prefixes (e.g. `Package_QFP:LQFP-64_10x10mm_P0.5mm`).
 
-- ESC connector: 8-pin JST-SH
-- RX connector: 4-pin JST-SH
-- GPS connector: 6-pin JST-SH
-- Spare connector: 6-pin JST-SH
-- Camera connector: 3-pin JST-SH
-- VTX connector: 4-pin JST-SH
+Remaining: some custom footprints (buzzer MLT-8530, etc.) need `.kicad_mod`
+files created in `layouts/default/lib.pretty/` before `ato build` can
+complete the PCB update step. See REV-004.
 
-Need to add footprints and MPNs to `src/connectors.ato` component definitions.
+## REV-004: Create missing custom KiCad footprints
+
+**Priority**: High — blocks PCB generation via `ato build`
+
+Several components use footprint names that don't exist in KiCad 9's standard
+libraries. These need custom `.kicad_mod` files in `layouts/default/lib.pretty/`:
+
+- `Buzzer_SMD_MLT-8530_8.5x8.5mm` (Buzzer_Beeper library has no match)
+- Verify all other footprints resolve against KiCad 9 libraries
+- BMP390 stub (`Bosch_LGA-10_2x2mm_P0.275x0.250mm`) already created but
+  needs proper pad geometry from datasheet
+
+The design netlist compiles and passes all assertions — this only affects
+the final PCB file generation step.
 
 ## REV-002: ESC telemetry UART assignment — UART4 vs UART5
 

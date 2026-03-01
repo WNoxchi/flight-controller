@@ -118,7 +118,7 @@ component ElectrolyticCap:
 # 100uF/35V aluminum electrolytic, 6.3x7.7mm SMD
 # LCSC C3339 — JLCPCB basic part, standard FC bulk input cap
 component Cap_100uF_35V:
-    footprint = "Capacitor_SMD:CP_Elec_6.3x7.7mm"
+    footprint = "Capacitor_SMD:CP_Elec_6.3x7.7"
     mpn = "RVT1V101M0607"
     designator_prefix = "C"
     signal p1 ~ pin 1  # positive

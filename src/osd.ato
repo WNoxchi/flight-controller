@@ -59,7 +59,7 @@ component FerriteBead:
 # Package: TSSOP-28 with exposed pad, 4.4x9.7mm, 0.65mm pitch
 # ────────────────────────────────────────────────
 component AT7456E:
-    footprint = "Package_SO:TSSOP-28-1EP_4.4x9.7mm_P0.65mm"
+    footprint = "Package_SO:TSSOP-28-1EP_4.4x9.7mm_P0.65mm_EP3.4x9.7mm_Mask3.1x4.05mm"
     mpn = "AT7456E"
     designator_prefix = "U"
 
