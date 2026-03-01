@@ -77,11 +77,11 @@ while true; do
 
     # Run Claude Code with the prompt (log overwritten each iteration)
     : > "$OUTFILE"
-    echo "$PROMPT" | ANTHROPIC_API_KEY= claude -p \
+    echo "$PROMPT" | ANTHROPIC_API_KEY= stdbuf -oL claude -p \
         --dangerously-skip-permissions \
         --verbose \
         --output-format "$OUTPUT_FORMAT" \
-        | tee "$OUTFILE"
+        | stdbuf -oL tee "$OUTFILE"
 
     # Check for completion signal
     if [ -n "$SIGNAL" ]; then
