@@ -90,6 +90,23 @@ module TF405:
     cam_conn = new CameraConnector
     vtx_conn = new VTXConnector
 
+    # ── Video Path Wiring (TASK-010) ──
+    # Analog video chain: Camera → AT7456E OSD overlay → VTX
+    # Video is composite analog — does NOT pass through the MCU.
+    # 75Ω impedance matching is a PCB layout constraint (trace width), not enforced in .ato.
+    cam_conn.video_out ~ osd.video_in    # Camera composite video → OSD VIN (pin 8)
+    osd.video_out ~ vtx_conn.video_in    # OSD composited VOUT (pin 3) → VTX
+    # Camera power: 5V regulated from buck converter, ground to system GND
+    cam_conn.v5 ~ power.rail_5v
+    cam_conn.gnd ~ power.gnd
+    # VTX power: switchable VBAT via PINIO1 P-FET (AO3401A in power.ato)
+    # Allows Betaflight to power-cycle the VTX for pit mode / channel changes
+    vtx_conn.vbat_sw ~ power.vbat_sw
+    vtx_conn.gnd ~ power.gnd
+    # VTX SmartAudio: single-wire protocol on UART5_TX (PC12)
+    # Used by Betaflight to control VTX power level, channel, and band
+    vtx_conn.smart_audio ~ mcu.pc12     # UART5_TX → SmartAudio
+
     # ── ESC Connector Wiring (TASK-009) ──
     # Motor outputs: TIM8 CH1-CH4 for DShot PWM (not bitbanged, DMA2 errata ES0206 §2.1.10)
     # All 4 motors on same timer ensures synchronized PWM updates via DMA2

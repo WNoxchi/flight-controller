@@ -1,17 +1,18 @@
 # Flight Controller Implementation Plan
 
-**Last Updated**: 2026-03-01 — TASK-009 (Motor/ESC wiring) completed
+**Last Updated**: 2026-03-01 — TASK-010 (Video path wiring) completed
 
-**Status**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-007, TASK-008, and TASK-009 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), OSD AT7456E (10 components, 2 asserts), and ESC/Motor wiring (0 new components, signal routing only) fully implemented with clean `ato build`. 30 total assertions passing. Remaining tasks: video path, UART connectors, misc peripherals.
+**Status**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-007, TASK-008, TASK-009, and TASK-010 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), OSD AT7456E (10 components, 2 asserts), ESC/Motor wiring (0 new components, signal routing only), and Video path (0 new components, signal routing only) fully implemented with clean `ato build`. 30 total assertions passing. Remaining tasks: UART connectors, misc peripherals.
 
-**Project State**: Foundation + USB + Sensors + Flash + OSD + Motor/ESC complete — MCU, power, USB, IMU, baro, flash, OSD modules implemented, ESC connector fully wired. 75 components total in BOM (37 unique). Build pipeline operational. I2C1 bus fully wired with pullups. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI2=AT7456E, SPI3=W25Q128). Motor outputs (TIM8 CH1-4) wired to ESC connector. Custom component patterns well-established for remaining tasks.
+**Project State**: Foundation + USB + Sensors + Flash + OSD + Motor/ESC + Video path complete — MCU, power, USB, IMU, baro, flash, OSD modules implemented, ESC and camera/VTX connectors fully wired. 75 components total in BOM (37 unique). Build pipeline operational. I2C1 bus fully wired with pullups. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI2=AT7456E, SPI3=W25Q128). Motor outputs (TIM8 CH1-4) wired to ESC connector. Analog video path (Camera→OSD→VTX) fully wired. SmartAudio on UART5_TX (PC12). Custom component patterns well-established for remaining tasks.
 
 **Key Findings**:
 - ~6 TODO comments remain (down from 43 — MCU, power, USB, IMU, baro, flash, and OSD TODOs resolved)
 - 30/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash + OSD modules)
 - 3 voltage-level assertions (rail_5v, rail_3v3, v_adc_vbat) cannot be verified in atopile v0.2.69 — solver only handles passive component values, not computed voltages
-- USB, IMU, baro, flash, OSD, and ESC grounds now connected; remaining 10 modules still missing ground
-- ESC connector fully wired (motors, telemetry, current sense, power); other connectors still incomplete
+- USB, IMU, baro, flash, OSD, ESC, camera, and VTX grounds now connected; remaining 8 modules still missing ground
+- ESC connector fully wired (motors, telemetry, current sense, power)
+- Camera and VTX connectors fully wired (video path, power, SmartAudio); remaining connectors (RX, GPS, spare) still incomplete
 - No atopile packages available for custom ICs (all custom-defined)
 - SpareConnector incomplete: missing duplicate power pins per spec (should be 6-pin, only 4 signals defined)
 - Power module exposes adc_vbat, adc_curr, pinio1, vbat_sw, usb_vbus, curr_in signals for top-level wiring
@@ -391,35 +392,37 @@
 
 ---
 
-### TASK-010: Wire Video Signal Path
+### TASK-010: Wire Video Signal Path ✅ COMPLETE
 **Spec**: `specs/video-vtx-misc.md` (line 4)
 **File**: `src/tf405.ato`
-**Current State**: Camera, OSD, VTX modules defined but video path NOT WIRED
+**Completed**: 2026-03-01
 **Priority**: HIGH - Critical for FPV operation
 **Dependencies**: TASK-008 (OSD implementation)
 
-**Required Implementation**:
-- Wire camera to OSD:
-  - `cam_conn.video_out ~ osd.video_in`
-
-- Wire OSD to VTX:
-  - `osd.video_out ~ vtx_conn.video_in`
-
-- Wire camera/VTX power:
+**Implementation Summary**:
+- **Analog video chain**: Camera → AT7456E OSD overlay → VTX (does NOT pass through MCU)
+  - `cam_conn.video_out ~ osd.video_in` — Camera composite video → OSD VIN (pin 8)
+  - `osd.video_out ~ vtx_conn.video_in` — OSD composited VOUT (pin 3) → VTX
+- **Camera power**: 5V regulated from buck converter + ground
   - `cam_conn.v5 ~ power.rail_5v`
   - `cam_conn.gnd ~ power.gnd`
-  - `vtx_conn.smart_audio ~ mcu.pc12` (UART5_TX)
-  - VTX power needs PINIO1 switchable VBAT (see TASK-002)
+- **VTX power**: switchable VBAT via PINIO1 P-FET (AO3401A)
+  - `vtx_conn.vbat_sw ~ power.vbat_sw` — allows Betaflight pit mode / VTX power cycling
+  - `vtx_conn.gnd ~ power.gnd`
+- **SmartAudio**: `vtx_conn.smart_audio ~ mcu.pc12` (UART5_TX, single-wire VTX control)
+- No new components added (pure signal routing in tf405.ato)
+- `ato build` passes cleanly, all 30 existing assertions still passing
 
-**Acceptance Criteria**:
-- Complete analog video path: Camera → OSD → VTX
-- Power and ground connected to camera/VTX connectors
-- SmartAudio UART5 connected
-- `ato build` compiles without errors
+**Acceptance Criteria** (all met):
+- ✅ Complete analog video path: Camera → OSD → VTX
+- ✅ Power and ground connected to camera/VTX connectors
+- ✅ SmartAudio UART5 connected
+- ✅ `ato build` compiles without errors
 
 **Notes**:
 - Video does NOT pass through MCU (analog only)
 - 75Ω impedance matching required (PCB layout constraint, not enforceable in .ato)
+- No new assertions needed — this task is pure wiring with no passive components
 
 ---
 
@@ -648,19 +651,19 @@ Add ground connections in tf405.ato for all modules:
 - ~~`imu.gnd ~ power.gnd`~~ (done in TASK-004)
 - ~~`baro.gnd ~ power.gnd`~~ (done in TASK-005)
 - ~~`flash.gnd ~ power.gnd`~~ (done in TASK-007)
-- `osd.gnd ~ power.gnd`
-- `usb.gnd ~ power.gnd`
+- ~~`osd.gnd ~ power.gnd`~~ (done in TASK-008)
+- ~~`usb.gnd ~ power.gnd`~~ (done in TASK-003)
 - `led.gnd ~ power.gnd`
 - `beeper.gnd ~ power.gnd`
 - `led_strip.gnd ~ power.gnd`
 - `cam_ctrl.gnd ~ power.gnd`
 - `sbus_inv.gnd ~ power.gnd`
-- `esc_conn.gnd ~ power.gnd`
+- ~~`esc_conn.gnd ~ power.gnd`~~ (done in TASK-009)
 - `rx_conn.gnd ~ power.gnd`
 - `gps_conn.gnd ~ power.gnd`
 - `spare_conn.gnd ~ power.gnd`
-- `cam_conn.gnd ~ power.gnd`
-- `vtx_conn.gnd ~ power.gnd`
+- ~~`cam_conn.gnd ~ power.gnd`~~ (done in TASK-010)
+- ~~`vtx_conn.gnd ~ power.gnd`~~ (done in TASK-010)
 
 **Acceptance Criteria**:
 - All module ground pins connected to system ground
@@ -846,8 +849,9 @@ Add ground connections in tf405.ato for all modules:
 - OSD: **100%** (TASK-008 complete — 10 components, 2 asserts, ato build passes)
 - USB: **100%** (TASK-003 complete — 10 components, 5 asserts, ato build passes)
 - Motor/ESC: **100%** (TASK-009 complete — all 8 ESC pins wired, ato build passes)
+- Video Path: **100%** (TASK-010 complete — Camera→OSD→VTX wired, SmartAudio on UART5, ato build passes)
 - UART/RX: ~20% (connectors defined, not wired)
-- Video/Misc: ~30% (partial wiring, circuits missing)
+- Misc: ~20% (LED, beeper, LED strip, camera control, SBUS inverter still TODO)
 
 **Component Package Availability**:
 - Available on packages.atopile.io: ~10-15% (USB connectors, possibly some passives)
