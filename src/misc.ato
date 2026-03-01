@@ -100,11 +100,31 @@ module Beeper:
     # ── Assert constraints (spec validation) ──
     assert r_gate.value within 9.9kohm to 10.1kohm
 
+# ────────────────────────────────────────────────
+# LED Strip Output (WS2812 / addressable RGB)
+# PB6 (TIM4_CH1) drives WS2812 data line through a 330Ω series resistor.
+# The resistor dampens signal ringing caused by impedance mismatch between
+# the MCU GPIO (~40Ω output impedance) and the LED strip cable (long wire,
+# ~100Ω characteristic impedance). Without it, reflections can cause
+# false triggering of WS2812 data latches, especially on longer runs.
+# 330Ω is the standard value used on WS2812 reference designs.
+# ────────────────────────────────────────────────
 module LEDStrip:
-    signal data  # PB6, WS2812 data
-    signal vdd   # 5V
+    signal data  # PB6 MCU-side input (TIM4_CH1 for DMA-based WS2812 timing)
+    signal pad   # Solder pad output to LED strip connector
+    signal vdd   # 5V supply for WS2812 LEDs
     signal gnd
-    # TODO: Series resistor (~330 ohm) on data line
+
+    # Series resistor: 330Ω on data line to reduce signal ringing
+    # Placed close to MCU pin, before the solder pad
+    r_data = new Resistor
+    r_data.value = 330ohm +/- 1%
+
+    # MCU GPIO (PB6) → 330Ω → solder pad (to LED strip)
+    data ~ r_data.p1; r_data.p2 ~ pad
+
+    # ── Assert constraints (spec validation) ──
+    assert r_data.value within 300ohm to 360ohm
 
 module CameraControl:
     signal gpio  # PB3, Betaflight camera OSD joystick
