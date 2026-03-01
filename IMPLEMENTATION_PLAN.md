@@ -1,14 +1,14 @@
 # Flight Controller Implementation Plan
 
-**Last Updated**: 2026-03-01 — TASK-011 (UART connectors) + TASK-012 (SBUS inverter) completed
+**Last Updated**: 2026-03-01 — TASK-013 (Status LED) completed
 
-**Status**: TASK-001 through TASK-005, TASK-007 through TASK-012 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), OSD AT7456E (10 components, 2 asserts), ESC/Motor wiring (signal routing only), Video path (signal routing only), UART connectors (all 3 wired + I2C1 GPS), and SBUS inverter (3 components, 2 asserts) fully implemented with clean `ato build`. 32 total assertions passing. Remaining tasks: misc peripherals (LED, beeper, LED strip, camera control, PA4 breakout).
+**Status**: TASK-001 through TASK-005, TASK-007 through TASK-013 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), OSD AT7456E (10 components, 2 asserts), ESC/Motor wiring (signal routing only), Video path (signal routing only), UART connectors (all 3 wired + I2C1 GPS), SBUS inverter (3 components, 2 asserts), and Status LED (2 components, 1 assert) fully implemented with clean `ato build`. 33 total assertions passing. Remaining tasks: misc peripherals (beeper, LED strip, camera control, PA4 breakout).
 
-**Project State**: All major subsystems complete — MCU, power, USB, IMU, baro, flash, OSD, SBUS inverter implemented. All connectors fully wired (ESC, RX, GPS, Spare, Camera, VTX). 78 components total in BOM (38 unique). Build pipeline operational. I2C1 bus fully wired with pullups + GPS connector. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI2=AT7456E, SPI3=W25Q128). All 5 usable UARTs wired (UART1=RX/SBUS, UART2=GPS, UART3=Spare, UART4=ESC telem, UART5=SmartAudio). All ground connections added for connectors and misc modules. Custom component patterns well-established for remaining tasks.
+**Project State**: All major subsystems complete — MCU, power, USB, IMU, baro, flash, OSD, SBUS inverter, status LED implemented. All connectors fully wired (ESC, RX, GPS, Spare, Camera, VTX). 80 components total in BOM (39 unique). Build pipeline operational. I2C1 bus fully wired with pullups + GPS connector. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI2=AT7456E, SPI3=W25Q128). All 5 usable UARTs wired (UART1=RX/SBUS, UART2=GPS, UART3=Spare, UART4=ESC telem, UART5=SmartAudio). All ground connections added for connectors and misc modules. Custom component patterns well-established for remaining tasks.
 
 **Key Findings**:
-- ~4 TODO comments remain (down from 43 — MCU, power, USB, IMU, baro, flash, OSD, and SBUS TODOs resolved; remaining: LED, beeper, LED strip, camera control)
-- 32/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash + OSD + SBUS inverter modules)
+- ~3 TODO comments remain (down from 43 — MCU, power, USB, IMU, baro, flash, OSD, SBUS, and LED TODOs resolved; remaining: beeper, LED strip, camera control)
+- 33/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash + OSD + SBUS inverter + LED modules)
 - 3 voltage-level assertions (rail_5v, rail_3v3, v_adc_vbat) cannot be verified in atopile v0.2.69 — solver only handles passive component values, not computed voltages
 - All module grounds now connected (USB, IMU, baro, flash, OSD, ESC, camera, VTX, RX, GPS, spare, LED, beeper, LED strip, camera control, SBUS inverter)
 - All connectors fully wired (ESC, RX, GPS, Spare, Camera, VTX)
@@ -517,27 +517,31 @@
 
 ## Priority 4: Miscellaneous Peripherals & Polish
 
-### TASK-013: Implement Status LED
+### TASK-013: Implement Status LED ✅ COMPLETE
 **Spec**: `specs/video-vtx-misc.md` (line 1)
-**File**: `src/misc.ato` (line 8)
-**Current State**: Module stub, GPIO connected (PB0), power connected, ground missing
+**File**: `src/misc.ato`
+**Completed**: 2026-03-01
 **Priority**: LOW - Nice to have for debugging
 **Dependencies**: TASK-002 (3.3V rail)
 
-**Required Implementation**:
-- LED component (standard 0603 or 0805 SMD)
-- Current limiting resistor: 1kΩ (for ~1.5mA @ 3.3V)
-- Fix missing ground connection: `led.gnd ~ power.gnd` in tf405.ato
+**Implementation Summary**:
+- **LED_0603 custom component**: green 0603 SMD LED (19-217/GHC-YR1S2/3T, Everlight)
+  - Footprint: `LED_0603_1608Metric` (standard KiCad library)
+  - Pin 1 (cathode), Pin 2 (anode)
+- **Current limiting resistor**: 1kΩ +/- 1% (yields ~1.3mA @ 3.3V with Vf~2.0V green LED)
+- **Active-low wiring**: VDD → 1kΩ → LED anode; LED cathode → GPIO (PB0)
+  - GPIO sinks current when driven low → LED turns on
+  - GPIO high → no current → LED off
+- **Ground connection**: `led.gnd ~ power.gnd` already present in tf405.ato (added in TASK-011)
+- 2 components total (LED + resistor), 1 passing assert constraint
+- `ato build` passes cleanly, 33 total assertions passing
 
-**Acceptance Criteria**:
-- LED and resistor instantiated
-- Assert statement for resistor value:
-  - `r_led.value within 900ohm to 1.1kohm`
-- Ground connection added
-- `ato build` compiles without errors
+**Assertions Implemented (1/1 spec constraints)**:
+- ✅ `r_led.value within 900ohm to 1.1kohm`
 
 **Notes**:
-- Already wired in tf405.ato lines 84-86 (GPIO and power)
+- Top-level wiring already complete: `led.gpio ~ mcu.pb0`, `led.vdd ~ power.rail_3v3`, `led.gnd ~ power.gnd`
+- NDAA compliance: Everlight (Taiwanese company, clean)
 
 ---
 
@@ -841,7 +845,7 @@ All ground connections now present in tf405.ato:
 - SBUS Inverter: **100%** (TASK-012 complete — 3 components, 2 asserts, ato build passes)
 - I2C Bus: **100%** (TASK-006 complete — pullups in baro, GPS I2C routing in TASK-011)
 - Ground Connections: **100%** (TASK-018 complete — all 16 modules grounded)
-- Misc: ~20% (LED, beeper, LED strip, camera control still TODO stubs)
+- Misc: ~40% (LED complete; beeper, LED strip, camera control still TODO stubs)
 
 **Component Package Availability**:
 - Available on packages.atopile.io: ~10-15% (USB connectors, possibly some passives)
@@ -851,9 +855,9 @@ All ground connections now present in tf405.ato:
 **Estimated Work Remaining**: ~15% of circuit implementation (4 misc peripherals) + PCB specs (documentation only)
 
 **Code Audit Results**:
-- ~4 TODO comments remaining (down from 43; remaining: LED, beeper, LED strip, camera control)
+- ~3 TODO comments remaining (down from 43; remaining: beeper, LED strip, camera control)
 - 0 commented-out connections (sbus_inv.uart_rx now active)
-- 32/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash + OSD + SBUS inverter; 8 voltage-level asserts not feasible in v0.2.69; 4 misc peripheral asserts pending TASK-013/015)
+- 33/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash + OSD + SBUS inverter + LED; 8 voltage-level asserts not feasible in v0.2.69; 3 misc peripheral asserts pending TASK-014/015)
 - 0 FIXME/HACK/PLACEHOLDER markers
 - 1 connector definition incomplete (SpareConnector missing duplicate power pins)
 
@@ -862,7 +866,7 @@ All ground connections now present in tf405.ato:
 ## Critical Blockers
 
 1. ~~**Missing ground connections**~~ ✅ RESOLVED (TASK-018 complete — all 16 modules grounded)
-2. **Misc peripheral stubs remain** - LED, beeper, LED strip, camera control still TODO (TASK-013 through TASK-016)
+2. **Misc peripheral stubs remain** - beeper, LED strip, camera control still TODO (TASK-014 through TASK-016)
 3. **No PCB stackup defined** - Blocks layout for impedance-critical signals (TASK-020)
 4. ~~**GPS connector I2C routing missing**~~ ✅ RESOLVED (TASK-006 complete via TASK-011)
 5. ~~**Connector wiring incomplete**~~ ✅ RESOLVED (all connectors now fully wired)

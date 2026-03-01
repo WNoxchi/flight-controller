@@ -16,11 +16,42 @@ component NFET_2N7002:
     signal source ~ pin 2
     signal drain ~ pin 3
 
+# ────────────────────────────────────────────────
+# Standard 0603 SMD LED
+# Used for board status indication (green, common 0603 package)
+# ────────────────────────────────────────────────
+component LED_0603:
+    footprint = "LED_0603_1608Metric"
+    mpn = "19-217/GHC-YR1S2/3T"
+    designator_prefix = "D"
+    signal anode ~ pin 2
+    signal cathode ~ pin 1
+
+# ────────────────────────────────────────────────
+# Status LED (active low)
+# PB0 sinks current when driven low → LED turns on.
+# Circuit: 3.3V → 1kΩ → LED anode, LED cathode → PB0 (GPIO)
+# At Vf~2.0V, I = (3.3 - 2.0) / 1kΩ ≈ 1.3mA — bright enough for status
+# ────────────────────────────────────────────────
 module StatusLED:
     signal gpio  # PB0, active low
     signal vdd
     signal gnd
-    # TODO: LED + current limiting resistor (typically 1k for 3.3V/~1.5mA)
+
+    # Current limiting resistor: 1kΩ for ~1.3mA @ 3.3V with green LED (Vf~2.0V)
+    r_led = new Resistor
+    r_led.value = 1kohm +/- 1%
+
+    # 0603 green status LED
+    led = new LED_0603
+
+    # Active-low wiring: VDD → resistor → LED anode; LED cathode → GPIO
+    # GPIO sinks current when driven low, turning the LED on
+    vdd ~ r_led.p1; r_led.p2 ~ led.anode
+    led.cathode ~ gpio
+
+    # ── Assert constraints (spec validation) ──
+    assert r_led.value within 900ohm to 1.1kohm
 
 module Beeper:
     signal gpio  # PB1, inverted (drives N-FET)

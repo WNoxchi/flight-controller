@@ -77,7 +77,7 @@ while true; do
 
     # Run Claude Code with the prompt (log overwritten each iteration)
     : > "$OUTFILE"
-    echo "$PROMPT" | claude -p \
+    echo "$PROMPT" | ANTHROPIC_API_KEY= claude -p \
         --dangerously-skip-permissions \
         --verbose \
         --output-format "$OUTPUT_FORMAT" \
