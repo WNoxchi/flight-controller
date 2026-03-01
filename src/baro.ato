@@ -23,7 +23,7 @@ from "mcu.ato" import Capacitor, Resistor
 # Pin mapping from Bosch datasheet BST-BMP390-DS002
 # ────────────────────────────────────────────────
 component BMP390:
-    footprint = "Bosch_LGA-10_2x2mm_P0.275x0.250mm"
+    footprint = "lib:Bosch_LGA-10_2x2mm_P0.275x0.250mm"
     mpn = "BMP390"
     designator_prefix = "U"
 
@@ -42,7 +42,8 @@ component BMP390:
     #   CSB=high → I2C mode, CSB=low → SPI mode
     signal csb ~ pin 6
     # Pin 7: INT — interrupt output (active high, optional)
-    signal int ~ pin 7
+    # Named 'int_out' to avoid conflict with 'int' keyword in parser
+    signal int_out ~ pin 7
     # Pins 8, 9: VSS — ground
     signal vss2 ~ pin 8
     signal vss3 ~ pin 9

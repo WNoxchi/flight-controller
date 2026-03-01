@@ -21,7 +21,7 @@ from "mcu.ato" import Capacitor, Resistor
 # Pin mapping from Bosch datasheet BST-BMI270-DS000
 # ────────────────────────────────────────────────
 component BMI270:
-    footprint = "Bosch_LGA-14_3x2.5mm_P0.5mm"
+    footprint = "Package_LGA:Bosch_LGA-14_3x2.5mm_P0.5mm"
     mpn = "BMI270"
     designator_prefix = "U"
 

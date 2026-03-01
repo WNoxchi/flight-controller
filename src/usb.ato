@@ -27,7 +27,7 @@ from "mcu.ato" import Capacitor, Resistor
 # Pad names per GCT datasheet and KiCad footprint library
 # ────────────────────────────────────────────────
 component USB4085:
-    footprint = "USB_C_Receptacle_GCT_USB4085"
+    footprint = "Connector_USB:USB_C_Receptacle_GCT_USB4085"
     mpn = "USB4085-GF-A"
     designator_prefix = "J"
 
@@ -72,7 +72,7 @@ component USB4085:
 # Dual-pad per line reduces inductance for better HF ESD clamping.
 # ────────────────────────────────────────────────
 component USBLC6_2SC6:
-    footprint = "SOT-23-6"
+    footprint = "Package_TO_SOT_SMD:SOT-23-6"
     mpn = "USBLC6-2SC6"
     designator_prefix = "U"
     signal io1_a ~ pin 1   # I/O1 line A (D-)

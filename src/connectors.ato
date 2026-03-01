@@ -1,8 +1,73 @@
-# Connectors — All JST-SH 1.0mm pitch
+# Connectors — Physical JST-SH 1.0mm pitch connectors
 # See specs/motors-esc.md, specs/uarts-receiver.md, specs/video-vtx-misc.md
+#
+# All external connectors use JST SH series, SMD horizontal mount (SM*B-SRSS-TB).
+# This is the standard connector type for modern FPV flight controllers.
+# Specs: 1.0mm pitch, 1A per contact, 50V rated, -25C to +85C operating temp.
+# Mating housing: SHR-0xV-S with SSH-003T-P0.2 crimp contacts.
+# Mounting pad (MP1) connected to GND for shielding and mechanical strength.
+
+# ────────────────────────────────────────────────
+# JST-SH SMD Connector Components
+# Horizontal mount (right-angle), 1.0mm pitch
+# Pin numbering: sequential 1..N, MP1 = mounting pad
+# ────────────────────────────────────────────────
+
+component JST_SH_3pin:
+    footprint = "Connector_JST:JST_SH_SM03B-SRSS-TB_1x03-1MP_P1.00mm_Horizontal"
+    mpn = "SM03B-SRSS-TB"
+    designator_prefix = "J"
+    signal p1 ~ pin 1
+    signal p2 ~ pin 2
+    signal p3 ~ pin 3
+    signal mp ~ pin MP1
+
+component JST_SH_4pin:
+    footprint = "Connector_JST:JST_SH_SM04B-SRSS-TB_1x04-1MP_P1.00mm_Horizontal"
+    mpn = "SM04B-SRSS-TB"
+    designator_prefix = "J"
+    signal p1 ~ pin 1
+    signal p2 ~ pin 2
+    signal p3 ~ pin 3
+    signal p4 ~ pin 4
+    signal mp ~ pin MP1
+
+component JST_SH_6pin:
+    footprint = "Connector_JST:JST_SH_SM06B-SRSS-TB_1x06-1MP_P1.00mm_Horizontal"
+    mpn = "SM06B-SRSS-TB"
+    designator_prefix = "J"
+    signal p1 ~ pin 1
+    signal p2 ~ pin 2
+    signal p3 ~ pin 3
+    signal p4 ~ pin 4
+    signal p5 ~ pin 5
+    signal p6 ~ pin 6
+    signal mp ~ pin MP1
+
+component JST_SH_8pin:
+    footprint = "Connector_JST:JST_SH_SM08B-SRSS-TB_1x08-1MP_P1.00mm_Horizontal"
+    mpn = "SM08B-SRSS-TB"
+    designator_prefix = "J"
+    signal p1 ~ pin 1
+    signal p2 ~ pin 2
+    signal p3 ~ pin 3
+    signal p4 ~ pin 4
+    signal p5 ~ pin 5
+    signal p6 ~ pin 6
+    signal p7 ~ pin 7
+    signal p8 ~ pin 8
+    signal mp ~ pin MP1
+
+# ────────────────────────────────────────────────
+# Connector Modules
+# Each module instantiates its physical JST-SH connector
+# and maps logical signals to physical pin positions.
+# Pin assignments per fc405-pinmap-spec.md Section 3.
+# ────────────────────────────────────────────────
 
 module ESCConnector:
-    # 8-pin JST-SH: GND, VBAT, CURR, M1-M4, TELEM
+    # 8-pin JST-SH: GND(1), VBAT(2), CURR(3), M1(4), M2(5), M3(6), M4(7), TELEM(8)
+    # Pinout follows Brave F7 reference design ESC connector
     signal gnd
     signal vbat
     signal curr
@@ -12,21 +77,50 @@ module ESCConnector:
     signal m4
     signal telem
 
+    conn = new JST_SH_8pin
+    conn.p1 ~ gnd
+    conn.p2 ~ vbat
+    conn.p3 ~ curr
+    conn.p4 ~ m1
+    conn.p5 ~ m2
+    conn.p6 ~ m3
+    conn.p7 ~ m4
+    conn.p8 ~ telem
+    conn.mp ~ gnd    # Mounting pad to ground for shielding
+
 module RXConnector:
-    # 4-pin JST-SH: GND, 5V, RX1, TX1
+    # 4-pin JST-SH: GND(1), 5V(2), RX1(3), TX1(4)
+    # Pin 3 is receiver data in (SBUS/CRSF), pin 4 is telemetry return
     signal gnd
     signal v5
     signal rx
     signal tx
 
+    conn = new JST_SH_4pin
+    conn.p1 ~ gnd
+    conn.p2 ~ v5
+    conn.p3 ~ rx
+    conn.p4 ~ tx
+    conn.mp ~ gnd
+
 module GPSConnector:
-    # 6-pin JST-SH: GND, 5V, TX2, RX2, SCL, SDA
+    # 6-pin JST-SH: GND(1), 5V(2), TX2(3), RX2(4), SCL(5), SDA(6)
+    # Compatible with Matek M10Q, BN-880 and similar GPS+Mag combo modules
     signal gnd
     signal v5
     signal tx
     signal rx
     signal scl
     signal sda
+
+    conn = new JST_SH_6pin
+    conn.p1 ~ gnd
+    conn.p2 ~ v5
+    conn.p3 ~ tx
+    conn.p4 ~ rx
+    conn.p5 ~ scl
+    conn.p6 ~ sda
+    conn.mp ~ gnd
 
 module SpareConnector:
     # 6-pin JST-SH: GND(1), 5V(2), TX3(3), RX3(4), 5V(5), GND(6)
@@ -39,15 +133,40 @@ module SpareConnector:
     signal v5_2    # pin 5: duplicate 5V for higher current capacity
     signal gnd_2   # pin 6: duplicate GND for lower impedance return path
 
+    conn = new JST_SH_6pin
+    conn.p1 ~ gnd
+    conn.p2 ~ v5
+    conn.p3 ~ tx
+    conn.p4 ~ rx
+    conn.p5 ~ v5_2
+    conn.p6 ~ gnd_2
+    conn.mp ~ gnd
+
 module CameraConnector:
-    # 3-pin JST-SH: GND, 5V, VOUT
+    # 3-pin JST-SH: GND(1), 5V(2), VOUT(3)
+    # Analog composite video output from camera to OSD input
     signal gnd
     signal v5
     signal video_out
 
+    conn = new JST_SH_3pin
+    conn.p1 ~ gnd
+    conn.p2 ~ v5
+    conn.p3 ~ video_out
+    conn.mp ~ gnd
+
 module VTXConnector:
-    # 4-pin JST-SH: GND, VBAT_SW, VIDEO, SA
+    # 4-pin JST-SH: GND(1), VBAT_SW(2), VIDEO(3), SA(4)
+    # VBAT_SW is switchable battery voltage via PINIO1 P-FET
+    # SA is SmartAudio single-wire control protocol (UART5_TX)
     signal gnd
     signal vbat_sw
     signal video_in
     signal smart_audio
+
+    conn = new JST_SH_4pin
+    conn.p1 ~ gnd
+    conn.p2 ~ vbat_sw
+    conn.p3 ~ video_in
+    conn.p4 ~ smart_audio
+    conn.mp ~ gnd

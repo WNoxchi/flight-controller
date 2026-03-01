@@ -22,7 +22,7 @@ from "mcu.ato" import Capacitor, Resistor
 # Input: 4.5-28V, Output: adjustable, Max 3A, up to 1.5MHz switching
 # ────────────────────────────────────────────────
 component MP1584EN:
-    footprint = "SOIC-8_3.9x4.9mm_P1.27mm"
+    footprint = "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
     mpn = "MP1584EN-LF-Z"
     designator_prefix = "U"
     signal sw ~ pin 1      # Switch node output — connects to inductor
@@ -41,7 +41,7 @@ component MP1584EN:
 # Note: Tab (pin 4) is electrically connected to VOUT (pin 2)
 # ────────────────────────────────────────────────
 component AMS1117_3V3:
-    footprint = "SOT-223-3_TabPin2"
+    footprint = "Package_TO_SOT_SMD:SOT-223-3_TabPin2"
     mpn = "AMS1117-3.3"
     designator_prefix = "U"
     signal gnd ~ pin 1     # Ground
@@ -54,7 +54,7 @@ component AMS1117_3V3:
 # Unidirectional: cathode band toward VBAT (reverse-biased during normal operation)
 # ────────────────────────────────────────────────
 component TVS_SMBJ26A:
-    footprint = "D_SMB"
+    footprint = "Diode_SMD:D_SMB"
     mpn = "SMBJ26A"
     designator_prefix = "D"
     signal anode ~ pin 1   # Connect to GND
@@ -66,7 +66,7 @@ component TVS_SMBJ26A:
 # Forward: anode=VBUS, cathode=5V rail (current flows USB→rail)
 # ────────────────────────────────────────────────
 component Schottky_SS34:
-    footprint = "D_SMA"
+    footprint = "Diode_SMD:D_SMA"
     mpn = "SS34"
     designator_prefix = "D"
     signal anode ~ pin 1
@@ -79,7 +79,7 @@ component Schottky_SS34:
 # Pin mapping: SOT-23 standard for P-FET
 # ────────────────────────────────────────────────
 component AO3401A:
-    footprint = "SOT-23"
+    footprint = "Package_TO_SOT_SMD:SOT-23"
     mpn = "AO3401A"
     designator_prefix = "Q"
     signal gate ~ pin 1    # Gate — driven by MCU PB2 via 10k resistor
@@ -92,7 +92,7 @@ component AO3401A:
 # Use shielded type to minimize EMI on sensitive analog circuits
 # ────────────────────────────────────────────────
 component Inductor_4u7:
-    footprint = "L_6.3x6.3_H3"
+    footprint = "Inductor_SMD:L_6.3x6.3_H3"
     mpn = "CDRH6D28HPNP-4R7NC"
     designator_prefix = "L"
     signal p1 ~ pin 1
@@ -128,7 +128,7 @@ component Cap_100uF_35V:
 # Samsung CL32A226KAJNNNE — LCSC C24497, JLCPCB basic part
 # 35V matches c_vbat_bulk rating; 72% derating at 25.2V (6S max)
 component Cap_22uF_35V:
-    footprint = "C_1210_3225Metric"
+    footprint = "Capacitor_SMD:C_1210_3225Metric"
     mpn = "CL32A226KAJNNNE"
     designator_prefix = "C"
     signal p1 ~ pin 1

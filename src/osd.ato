@@ -34,7 +34,7 @@ from "mcu.ato" import Capacitor, Resistor
 # 27MHz is the standard video subcarrier reference frequency
 # ────────────────────────────────────────────────
 component Crystal_27MHz:
-    footprint = "Crystal_SMD_3215-2Pin_3.2x1.5mm"
+    footprint = "Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm"
     mpn = "ABM8-27.000MHZ-B2-T"
     designator_prefix = "Y"
     signal xin ~ pin 1
@@ -47,7 +47,7 @@ component Crystal_27MHz:
 # and sensitive analog video circuitry in AT7456E
 # ────────────────────────────────────────────────
 component FerriteBead:
-    footprint = "L_0805_2012Metric"
+    footprint = "Inductor_SMD:L_0805_2012Metric"
     mpn = "BLM21PG221SN1D"
     designator_prefix = "FB"
     signal p1 ~ pin 1

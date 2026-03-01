@@ -21,7 +21,7 @@
 # Verified against official STM32F405xx pinout for LQFP-64
 # ────────────────────────────────────────────────
 component STM32F405RGT6:
-    footprint = "LQFP-64_10x10mm_P0.5mm"
+    footprint = "Package_QFP:LQFP-64_10x10mm_P0.5mm"
     mpn = "STM32F405RGT6"
     designator_prefix = "U"
 
@@ -109,7 +109,7 @@ component STM32F405RGT6:
 # 3.2x2.5mm SMD, 20ppm, 10pF load capacitance
 # ────────────────────────────────────────────────
 component Crystal_8MHz:
-    footprint = "Crystal_SMD_3215-2Pin_3.2x1.5mm"
+    footprint = "Crystal:Crystal_SMD_3215-2Pin_3.2x1.5mm"
     mpn = "ABM8-8.000MHZ-B2-T"
     designator_prefix = "Y"
     signal xin ~ pin 1
@@ -137,7 +137,7 @@ component Button:
     signal p1 ~ pin 1
     signal p2 ~ pin 2
     designator_prefix = "SW"
-    footprint = "SW_SPST_TL3342"
+    footprint = "Button_Switch_SMD:SW_SPST_TL3342"
     mpn = "TL3342F160QG"
 
 # ────────────────────────────────────────────────

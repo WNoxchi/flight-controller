@@ -9,7 +9,7 @@ from "mcu.ato" import Resistor
 # Pin mapping from ON Semiconductor datasheet
 # ────────────────────────────────────────────────
 component NFET_2N7002:
-    footprint = "SOT-23"
+    footprint = "Package_TO_SOT_SMD:SOT-23"
     mpn = "2N7002"
     designator_prefix = "Q"
     signal gate ~ pin 1
@@ -21,7 +21,7 @@ component NFET_2N7002:
 # Used for board status indication (green, common 0603 package)
 # ────────────────────────────────────────────────
 component LED_0603:
-    footprint = "LED_0603_1608Metric"
+    footprint = "LED_SMD:LED_0603_1608Metric"
     mpn = "19-217/GHC-YR1S2/3T"
     designator_prefix = "D"
     signal anode ~ pin 2
