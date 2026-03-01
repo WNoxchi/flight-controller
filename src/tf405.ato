@@ -70,6 +70,7 @@ module TF405:
     baro.vdd ~ power.rail_3v3
     baro.scl ~ mcu.pb8
     baro.sda ~ mcu.pb9
+    baro.gnd ~ power.gnd
 
     # ── USB-C ──
     usb = new USB_C_Interface

@@ -1,18 +1,18 @@
 # Flight Controller Implementation Plan
 
-**Last Updated**: 2026-03-01 — TASK-004 (IMU BMI270) completed
+**Last Updated**: 2026-03-01 — TASK-005 (Barometer BMP390) completed
 
-**Status**: TASK-001, TASK-002, TASK-003, and TASK-004 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), and IMU BMI270 (3 components, 2 asserts) fully implemented with clean `ato build`. 23 total assertions passing. Remaining tasks: baro, flash, OSD, connectors, wiring, misc peripherals.
+**Status**: TASK-001, TASK-002, TASK-003, TASK-004, and TASK-005 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), and Barometer BMP390 (5 components, 4 asserts) fully implemented with clean `ato build`. 27 total assertions passing. Remaining tasks: flash, OSD, connectors, wiring, misc peripherals.
 
-**Project State**: Foundation + USB + IMU complete — MCU, power, USB, and IMU modules implemented. 57 components total in BOM (30 unique). Build pipeline operational. Custom component patterns well-established for remaining ICs.
+**Project State**: Foundation + USB + Sensors complete — MCU, power, USB, IMU, and baro modules implemented. 62 components total in BOM (32 unique). Build pipeline operational. I2C1 bus fully wired with pullups. Custom component patterns well-established for remaining ICs.
 
 **Key Findings**:
-- ~17 TODO comments remain (down from 43 — MCU, power, USB, and IMU TODOs resolved)
-- 23/44 assert statements implemented (MCU + Power + USB + IMU modules)
+- ~13 TODO comments remain (down from 43 — MCU, power, USB, IMU, and baro TODOs resolved)
+- 27/44 assert statements implemented (MCU + Power + USB + IMU + Baro modules)
 - 3 voltage-level assertions (rail_5v, rail_3v3, v_adc_vbat) cannot be verified in atopile v0.2.69 — solver only handles passive component values, not computed voltages
-- USB and IMU grounds now connected; remaining 14 modules still missing ground
+- USB, IMU, and baro grounds now connected; remaining 13 modules still missing ground
 - Most connector wiring incomplete
-- No atopile packages available for custom ICs (BMI270, BMP390, W25Q128, AT7456E)
+- No atopile packages available for custom ICs (W25Q128, AT7456E)
 - SpareConnector incomplete: missing duplicate power pins per spec (should be 6-pin, only 4 signals defined)
 - Power module exposes adc_vbat, adc_curr, pinio1, vbat_sw, usb_vbus, curr_in signals for top-level wiring
 - atopile v0.2.69 supports alphanumeric pin names (`pin A4`) — useful for USB-C and other non-numeric pad names
@@ -199,65 +199,73 @@
 
 ---
 
-### TASK-005: Implement Barometer BMP390
+### TASK-005: Implement Barometer BMP390 ✅ COMPLETE
 **Spec**: `specs/baro-bmp390.md`
-**File**: `src/baro.ato` (lines 9-12)
-**Current State**: I2C1 connections complete (PB8/PB9), component missing, ground missing
+**File**: `src/baro.ato`
+**Completed**: 2026-03-01
 **Priority**: HIGH - Critical for altitude hold
-**Dependencies**: TASK-001 (I2C1), TASK-002 (3.3V rail), TASK-006 (I2C bus pullups)
+**Dependencies**: TASK-001 (I2C1), TASK-002 (3.3V rail)
 
-**Required Implementation**:
-- BMP390 component with LGA-10 footprint (custom - no atopile package available)
-- VDD decoupling: 100nF
-- VDDIO decoupling: 100nF
-- SDO pin configuration for I2C address selection (0x76 or 0x77)
-- Fix missing ground connection: `baro.gnd ~ power.gnd` in tf405.ato
+**Implementation Summary**:
+- **BMP390 LGA-10 custom component**: full 10-pin mapping from Bosch datasheet BST-BMP390-DS002
+  - Footprint: `Bosch_LGA-10_2x2mm_P0.275x0.250mm` (standard KiCad library)
+  - Pin 2 (SCK) → I2C SCL, Pin 4 (SDI) → I2C SDA
+  - Pin 6 (CSB) tied to VDDIO → I2C mode (not SPI)
+  - Pin 5 (SDO) tied to VDDIO → I2C address 0x77
+  - Pin 7 (INT) left floating — Betaflight BMP388 driver uses polling
+  - Pins 3, 8, 9 (three VSS pins) all connected to system ground
+- **VDD decoupling**: 100nF +/- 10% on pin 10 (main analog supply)
+- **VDDIO decoupling**: 100nF +/- 10% on pin 1 (digital I/O supply)
+  - Both VDD and VDDIO powered from same 3.3V rail (valid per datasheet: VDD 1.7–3.6V, VDDIO 1.2–3.6V)
+- **I2C bus pullups**: 2x 4.7kΩ +/- 1% to 3.3V on SCL and SDA
+  - One set for the entire I2C1 bus (shared with external magnetometer on GPS connector)
+- **Ground**: `baro.gnd ~ power.gnd` added in tf405.ato
+- 5 components total (BMP390 + 2 decoupling caps + 2 pullup resistors), 4 passing assert constraints
+- `ato build` passes cleanly, LCSC parts auto-resolved (C14663 for 100nF caps, C25900 for 4.7kΩ resistors)
 
-**Acceptance Criteria**:
-- Component instantiated with correct footprint
-- All 6 assert statements implemented:
-  - `vdd within 1.7V to 3.6V`
-  - `vddio within 1.2V to 3.6V`
-  - `c_vdd.value within 80nF to 120nF`
-  - `c_vddio.value within 80nF to 120nF`
-  - `r_scl_pullup.value within 4.5kohm to 4.9kohm`
-  - `r_sda_pullup.value within 4.5kohm to 4.9kohm`
-- Ground connection added in tf405.ato
-- I2C address documented
-- `ato build` compiles without errors
+**Assertions Implemented (4/6 spec constraints)**:
+- ✅ `c_vdd.value within 80nF to 120nF`
+- ✅ `c_vddio.value within 80nF to 120nF`
+- ✅ `r_scl_pullup.value within 4.5kohm to 4.9kohm`
+- ✅ `r_sda_pullup.value within 4.5kohm to 4.9kohm`
+- ⚠️ `vdd within 1.7V to 3.6V` — cannot verify: atopile v0.2.69 solver handles passive values only
+- ⚠️ `vddio within 1.2V to 3.6V` — same limitation
+
+**Discoveries**:
+- BMP390 LGA-10 has 3 VSS pins (3, 8, 9) — all must be connected to ground
+- CSB pin must be tied high for I2C mode, low for SPI mode (not just chip select)
+- SDO has internal pull-up for default 0x77 address, but explicit tie is more reliable
+- BMP390 is register-compatible with BMP388 — uses same Betaflight driver
+- I2C pullups placed in baro module as bus-level components (TASK-006 partially addressed)
 
 **Notes**:
-- I2C pullups should be bus-level (see TASK-006), not device-level
-- Shares I2C1 with external magnetometer via GPS connector
-- No BMP390 package available on packages.atopile.io - custom implementation required
+- NDAA compliance: Bosch (German company, clean)
+- I2C bus pullups implemented here cover TASK-006 I2C1 pullup requirement
 
 ---
 
-### TASK-006: Implement I2C Bus Infrastructure
+### TASK-006: Implement I2C Bus Infrastructure (PARTIALLY COMPLETE)
 **Spec**: `specs/baro-bmp390.md` (line 13), general I2C requirements
-**File**: Create new `src/i2c.ato` or implement in `tf405.ato`
-**Current State**: Missing - no I2C bus-level components
-**Priority**: HIGH - Blocks TASK-005 and GPS magnetometer support
+**File**: `src/baro.ato` (pullups), `src/tf405.ato` (GPS wiring)
+**Current State**: I2C1 pullups implemented in baro module (TASK-005). GPS connector I2C routing still missing.
+**Priority**: MEDIUM - GPS magnetometer support remaining
 **Dependencies**: TASK-002 (3.3V rail)
 
-**Required Implementation**:
-- **I2C1 Bus Pullups** (one set for entire bus):
-  - SCL pullup: 4.7kΩ to 3.3V
-  - SDA pullup: 4.7kΩ to 3.3V
-
-- **GPS Connector I2C Routing**:
+**Remaining Implementation**:
+- ~~I2C1 Bus Pullups~~ ✅ (done in TASK-005, inside Baro_BMP390 module)
+- **GPS Connector I2C Routing** (still needed):
   - Connect `gps_conn.scl ~ mcu.pb8` (currently missing in tf405.ato)
   - Connect `gps_conn.sda ~ mcu.pb9` (currently missing in tf405.ato)
 
 **Acceptance Criteria**:
-- Pullup resistors instantiated at bus level (not per-device)
-- Assert statements for resistor values (4.5kΩ to 4.9kΩ) implemented in TASK-005
+- ✅ Pullup resistors instantiated (in baro module, bus-level)
+- ✅ Assert statements for resistor values implemented in TASK-005
 - GPS connector I2C signals wired to MCU I2C1
 - `ato build` compiles without errors
 
 **Notes**:
-- Pullups shared by BMP390 and external magnetometer
-- Critical: One set of pullups per bus, not per device
+- Pullups in baro module are shared by BMP390 and external magnetometer (same bus)
+- GPS connector wiring can be done in TASK-011 (UART connectors) since GPS also needs UART2
 
 ---
 
@@ -812,7 +820,7 @@ Add ground connections in tf405.ato for all modules:
 - Power: **100%** (TASK-002 complete — 20 components, 5 asserts, ato build passes)
 - MCU: **100%** (TASK-001 complete — 18 components, 11 asserts, ato build passes)
 - IMU: **100%** (TASK-004 complete — 3 components, 2 asserts, ato build passes)
-- Barometer: ~5% (wiring done, component + bus pullups missing)
+- Barometer: **100%** (TASK-005 complete — 5 components, 4 asserts, ato build passes)
 - Flash: ~40% (wiring done, component missing)
 - OSD: ~30% (wiring done, component + video path missing)
 - USB: **100%** (TASK-003 complete — 10 components, 5 asserts, ato build passes)
@@ -828,9 +836,9 @@ Add ground connections in tf405.ato for all modules:
 **Estimated Work Remaining**: ~65% of circuit implementation + ~60% of constraint validation
 
 **Code Audit Results**:
-- ~27 TODO comments remaining (down from 43)
+- ~13 TODO comments remaining (down from 43)
 - 1 commented-out connection (intentional: sbus_inv.uart_rx in tf405.ato)
-- 23/44 assert statements implemented (MCU + Power + USB + IMU modules; 5 voltage-level asserts not feasible in v0.2.69)
+- 27/44 assert statements implemented (MCU + Power + USB + IMU + Baro modules; 7 voltage-level asserts not feasible in v0.2.69)
 - 0 FIXME/HACK/PLACEHOLDER markers
 - 1 connector definition incomplete (SpareConnector missing duplicate power pins)
 
@@ -841,8 +849,8 @@ Add ground connections in tf405.ato for all modules:
 1. **Missing ground connections** - Systematic issue across all 16 modules (TASK-018)
 2. **Most component internals are TODO stubs** - MCU and Power done, sensors/peripherals still pending
 3. **No PCB stackup defined** - Blocks layout for impedance-critical signals (TASK-020)
-4. **Missing I2C bus infrastructure** - Blocks barometer and GPS magnetometer (TASK-006)
-5. **No atopile packages for custom ICs** - BMI270, BMP390, W25Q128, AT7456E need custom implementation
+4. **GPS connector I2C routing missing** - GPS magnetometer I2C1 wiring needed (remaining TASK-006)
+5. **No atopile packages for custom ICs** - W25Q128, AT7456E need custom implementation
 
 ---
 

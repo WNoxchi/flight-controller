@@ -1,12 +1,121 @@
 # BMP390 Barometer on I2C1 — See specs/baro-bmp390.md
+#
+# Design decisions:
+# - Bosch BMP390 in LGA-10 package (2.0x2.0mm)
+# - I2C mode selected (not SPI) — shared I2C1 bus with external magnetometer via GPS connector
+# - Pin 5 (SDO) connected to VDDIO for I2C address 0x77 (default)
+#   SDO=high → 0x77, SDO=low → 0x76. Using 0x77 to avoid conflict with other sensors.
+#   SDO has internal pull-up, but we tie it explicitly to VDDIO for deterministic behavior.
+# - Pin 6 (CSB) connected to VDDIO to select I2C mode (CSB=high → I2C, CSB=low → SPI)
+# - Pin 7 (INT) left floating — interrupt not used in Betaflight BMP388 driver
+#   (BMP390 is register-compatible with BMP388, uses polling-based readout)
+# - VDD (pin 10): main analog supply, 1.7–3.6V, 100nF decoupling
+# - VDDIO (pin 1): digital I/O supply, 1.2–3.6V, 100nF decoupling
+#   Both powered from same 3.3V rail (valid per datasheet)
+# - Three VSS pins (3, 8, 9) all connected to system ground
+# - I2C bus pullups (4.7kΩ to 3.3V): one set for the entire I2C1 bus
+#   (shared with external magnetometer on GPS connector)
 
+from "mcu.ato" import Capacitor, Resistor
+
+# ────────────────────────────────────────────────
+# BMP390 component definition (LGA-10, 2.0x2.0mm)
+# Pin mapping from Bosch datasheet BST-BMP390-DS002
+# ────────────────────────────────────────────────
+component BMP390:
+    footprint = "Bosch_LGA-10_2x2mm_P0.275x0.250mm"
+    mpn = "BMP390"
+    designator_prefix = "U"
+
+    # Pin 1: VDDIO — digital interface supply voltage (1.2–3.6V)
+    signal vddio ~ pin 1
+    # Pin 2: SCK — serial clock input (I2C SCL, up to 3.4MHz)
+    signal sck ~ pin 2
+    # Pin 3: VSS — ground
+    signal vss1 ~ pin 3
+    # Pin 4: SDI — serial data input (I2C SDA)
+    signal sdi ~ pin 4
+    # Pin 5: SDO — serial data output / I2C address select
+    #   In I2C mode: SDO=high → address 0x77, SDO=low → address 0x76
+    signal sdo ~ pin 5
+    # Pin 6: CSB — chip select / interface select
+    #   CSB=high → I2C mode, CSB=low → SPI mode
+    signal csb ~ pin 6
+    # Pin 7: INT — interrupt output (active high, optional)
+    signal int ~ pin 7
+    # Pins 8, 9: VSS — ground
+    signal vss2 ~ pin 8
+    signal vss3 ~ pin 9
+    # Pin 10: VDD — analog power supply (1.7–3.6V)
+    signal vdd ~ pin 10
+
+# ────────────────────────────────────────────────
+# Baro_BMP390 module: BMP390 + decoupling + I2C bus pullups + assertions
+# ────────────────────────────────────────────────
 module Baro_BMP390:
-    signal vdd
-    signal gnd
-    signal scl
-    signal sda
+    # Module interface signals (exposed to top-level tf405.ato)
+    signal vdd      # 3.3V power input
+    signal gnd      # System ground
+    signal scl      # I2C1 clock (PB8)
+    signal sda      # I2C1 data (PB9)
 
-    # TODO: Implement BMP390 component with LGA-10 footprint
-    # TODO: VDD + VDDIO decoupling (100nF each)
-    # TODO: I2C pullups (4.7k to 3.3V on SCL/SDA)
-    # TODO: SDO pin config for I2C address selection
+    # ── BMP390 IC ──
+    baro = new BMP390
+
+    # ── Power connections ──
+    # VDD: main analog supply from 3.3V rail
+    baro.vdd ~ vdd
+    # VDDIO: digital I/O supply, same 3.3V rail (both within spec range)
+    baro.vddio ~ vdd
+    # All three VSS pins to system ground
+    baro.vss1 ~ gnd
+    baro.vss2 ~ gnd
+    baro.vss3 ~ gnd
+
+    # ── I2C connections ──
+    baro.sck ~ scl     # I2C clock
+    baro.sdi ~ sda     # I2C data
+
+    # ── Mode and address selection ──
+    # CSB tied to VDDIO → I2C mode (CSB=high selects I2C, CSB=low selects SPI)
+    baro.csb ~ vdd
+    # SDO tied to VDDIO → I2C address 0x77 (SDO has internal pull-up,
+    # but explicit connection ensures deterministic address selection)
+    baro.sdo ~ vdd
+
+    # INT pin left floating — Betaflight BMP388 driver uses polling, not interrupts
+
+    # ── VDD decoupling (100nF, placed close to pin 10) ──
+    c_vdd = new Capacitor
+    c_vdd.value = 100nF +/- 10%
+    baro.vdd ~ c_vdd.p1; c_vdd.p2 ~ gnd
+
+    # ── VDDIO decoupling (100nF, placed close to pin 1) ──
+    c_vddio = new Capacitor
+    c_vddio.value = 100nF +/- 10%
+    baro.vddio ~ c_vddio.p1; c_vddio.p2 ~ gnd
+
+    # ── I2C bus pullups (4.7kΩ to 3.3V) ──
+    # One set for the entire I2C1 bus — shared with external magnetometer
+    # on GPS connector. Standard 4.7kΩ value works for 100kHz and 400kHz modes.
+    # Higher values (10kΩ) would limit bus speed; lower (2.2kΩ) wastes current.
+    r_scl_pullup = new Resistor
+    r_scl_pullup.value = 4.7kohm +/- 1%
+    scl ~ r_scl_pullup.p1; r_scl_pullup.p2 ~ vdd
+
+    r_sda_pullup = new Resistor
+    r_sda_pullup.value = 4.7kohm +/- 1%
+    sda ~ r_sda_pullup.p1; r_sda_pullup.p2 ~ vdd
+
+    # ── Assert constraints (spec validation) ──
+    # Decoupling cap values per BMP390 datasheet recommendation
+    assert c_vdd.value within 80nF to 120nF
+    assert c_vddio.value within 80nF to 120nF
+    # I2C bus pullup values (standard 4.7kΩ for 400kHz Fast Mode)
+    assert r_scl_pullup.value within 4.5kohm to 4.9kohm
+    assert r_sda_pullup.value within 4.5kohm to 4.9kohm
+    # Note: VDD/VDDIO voltage-level assertions (1.7–3.6V / 1.2–3.6V)
+    # cannot be verified in atopile v0.2.69 — solver only handles passive
+    # component values, not rail voltages. Documented for reference:
+    # assert vdd within 1.7V to 3.6V    (datasheet requirement)
+    # assert vddio within 1.2V to 3.6V  (datasheet requirement)
