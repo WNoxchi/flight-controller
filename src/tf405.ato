@@ -130,6 +130,7 @@ module TF405:
 
     beeper = new Beeper
     beeper.gpio ~ mcu.pb1
+    beeper.vdd ~ power.rail_5v   # 5V supply for passive buzzer (MLT-8530)
     beeper.gnd ~ power.gnd
 
     led_strip = new LEDStrip

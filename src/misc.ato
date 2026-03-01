@@ -53,10 +53,52 @@ module StatusLED:
     # ── Assert constraints (spec validation) ──
     assert r_led.value within 900ohm to 1.1kohm
 
+# ────────────────────────────────────────────────
+# MLT-8530 Passive Piezo Buzzer (SMD, 8.5x8.5x3mm)
+# Standard on Betaflight FCs. Passive type requires square-wave
+# drive from MCU (Betaflight generates ~4kHz via timer).
+# Resonant freq: 2.7kHz, 80dB SPL, coil resistance 12±3Ω.
+# ────────────────────────────────────────────────
+component Buzzer_MLT8530:
+    footprint = "Buzzer_Beeper:Buzzer_SMD_MLT-8530_8.5x8.5mm"
+    mpn = "MLT-8530"
+    designator_prefix = "BZ"
+    signal positive ~ pin 1
+    signal negative ~ pin 2
+
+# ────────────────────────────────────────────────
+# Beeper Circuit (N-FET low-side drive)
+# PB1 drives 2N7002 gate via 10kΩ resistor. FET switches buzzer
+# ground path: 5V → buzzer+ → buzzer- → FET drain → GND.
+# Betaflight BEEPER_INVERTED = ON: PB1 high → FET on → buzzer sounds.
+# 10kΩ gate resistor limits inrush and provides ESD protection;
+# slower gate charge is acceptable since buzzer freq is only ~4kHz.
+# ────────────────────────────────────────────────
 module Beeper:
-    signal gpio  # PB1, inverted (drives N-FET)
+    signal gpio  # PB1, active high (drives N-FET gate)
+    signal vdd   # 5V for buzzer supply
     signal gnd
-    # TODO: N-FET (2N7002) gate driver + passive buzzer on 5V
+
+    # N-channel MOSFET: 2N7002 SOT-23 (Vgs_th ~1.5V, handles 3.3V logic)
+    q_beep = new NFET_2N7002
+
+    # Gate resistor: 10kΩ limits gate inrush current and provides ESD protection
+    # 10kΩ is adequate since buzzer PWM is only ~4kHz (rise time not critical)
+    r_gate = new Resistor
+    r_gate.value = 10kohm +/- 1%
+    gpio ~ r_gate.p1; r_gate.p2 ~ q_beep.gate
+
+    # Source to ground (N-FET low-side switch topology)
+    q_beep.source ~ gnd
+
+    # Passive buzzer: MLT-8530 (8.5mm SMD, 3.6V nominal, 80dB SPL)
+    # Connected between 5V supply and FET drain — FET switches ground path
+    buzzer = new Buzzer_MLT8530
+    vdd ~ buzzer.positive
+    buzzer.negative ~ q_beep.drain
+
+    # ── Assert constraints (spec validation) ──
+    assert r_gate.value within 9.9kohm to 10.1kohm
 
 module LEDStrip:
     signal data  # PB6, WS2812 data

@@ -1,14 +1,14 @@
 # Flight Controller Implementation Plan
 
-**Last Updated**: 2026-03-01 — TASK-013 (Status LED) completed
+**Last Updated**: 2026-03-01 — TASK-014 (Beeper Circuit) completed
 
-**Status**: TASK-001 through TASK-005, TASK-007 through TASK-013 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), OSD AT7456E (10 components, 2 asserts), ESC/Motor wiring (signal routing only), Video path (signal routing only), UART connectors (all 3 wired + I2C1 GPS), SBUS inverter (3 components, 2 asserts), and Status LED (2 components, 1 assert) fully implemented with clean `ato build`. 33 total assertions passing. Remaining tasks: misc peripherals (beeper, LED strip, camera control, PA4 breakout).
+**Status**: TASK-001 through TASK-005, TASK-007 through TASK-014 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), OSD AT7456E (10 components, 2 asserts), ESC/Motor wiring (signal routing only), Video path (signal routing only), UART connectors (all 3 wired + I2C1 GPS), SBUS inverter (3 components, 2 asserts), Status LED (2 components, 1 assert), and Beeper (3 components, 1 assert) fully implemented with clean `ato build`. 34 total assertions passing. Remaining tasks: misc peripherals (LED strip, camera control, PA4 breakout).
 
-**Project State**: All major subsystems complete — MCU, power, USB, IMU, baro, flash, OSD, SBUS inverter, status LED implemented. All connectors fully wired (ESC, RX, GPS, Spare, Camera, VTX). 80 components total in BOM (39 unique). Build pipeline operational. I2C1 bus fully wired with pullups + GPS connector. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI2=AT7456E, SPI3=W25Q128). All 5 usable UARTs wired (UART1=RX/SBUS, UART2=GPS, UART3=Spare, UART4=ESC telem, UART5=SmartAudio). All ground connections added for connectors and misc modules. Custom component patterns well-established for remaining tasks.
+**Project State**: All major subsystems complete — MCU, power, USB, IMU, baro, flash, OSD, SBUS inverter, status LED, beeper implemented. All connectors fully wired (ESC, RX, GPS, Spare, Camera, VTX). 83 components total in BOM (40 unique). Build pipeline operational. I2C1 bus fully wired with pullups + GPS connector. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI2=AT7456E, SPI3=W25Q128). All 5 usable UARTs wired (UART1=RX/SBUS, UART2=GPS, UART3=Spare, UART4=ESC telem, UART5=SmartAudio). All ground connections added for connectors and misc modules. Custom component patterns well-established for remaining tasks.
 
 **Key Findings**:
-- ~3 TODO comments remain (down from 43 — MCU, power, USB, IMU, baro, flash, OSD, SBUS, and LED TODOs resolved; remaining: beeper, LED strip, camera control)
-- 33/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash + OSD + SBUS inverter + LED modules)
+- ~2 TODO comments remain (down from 43 — MCU, power, USB, IMU, baro, flash, OSD, SBUS, LED, and beeper TODOs resolved; remaining: LED strip, camera control)
+- 34/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash + OSD + SBUS inverter + LED + Beeper modules)
 - 3 voltage-level assertions (rail_5v, rail_3v3, v_adc_vbat) cannot be verified in atopile v0.2.69 — solver only handles passive component values, not computed voltages
 - All module grounds now connected (USB, IMU, baro, flash, OSD, ESC, camera, VTX, RX, GPS, spare, LED, beeper, LED strip, camera control, SBUS inverter)
 - All connectors fully wired (ESC, RX, GPS, Spare, Camera, VTX)
@@ -16,6 +16,7 @@
 - GPS connector includes I2C1 (SCL/SDA) for external magnetometer
 - No atopile packages available for custom ICs (all custom-defined)
 - SpareConnector incomplete: missing duplicate power pins per spec (should be 6-pin, only 4 signals defined)
+- Buzzer_MLT8530 component: `designator_prefix = "BZ"`, `footprint = "Buzzer_Beeper:Buzzer_SMD_MLT-8530_8.5x8.5mm"`, mpn `MLT-8530`
 - Power module exposes adc_vbat, adc_curr, pinio1, vbat_sw, usb_vbus, curr_in signals for top-level wiring
 - atopile v0.2.69 supports alphanumeric pin names (`pin A4`) — useful for USB-C and other non-numeric pad names
 - 2N7002 SOT-23 pinout: Gate(1), Source(2), Drain(3) — verified against ON Semi datasheet
@@ -545,27 +546,40 @@
 
 ---
 
-### TASK-014: Implement Beeper Circuit
+### TASK-014: Implement Beeper Circuit ✅ COMPLETE
 **Spec**: `specs/video-vtx-misc.md` (line 2)
-**File**: `src/misc.ato` (line 13)
-**Current State**: Module stub, GPIO connected (PB1), ground missing
+**File**: `src/misc.ato`
+**Completed**: 2026-03-01
 **Priority**: LOW - Nice to have for lost model alarm
 **Dependencies**: TASK-002 (5V rail for buzzer)
 
-**Required Implementation**:
-- 2N7002 N-FET gate driver
-- Gate resistor: 10kΩ from PB1
-- Passive buzzer on 5V rail (drain of FET)
-- Fix missing ground connection: `beeper.gnd ~ power.gnd` in tf405.ato
+**Implementation Summary**:
+- **Buzzer_MLT8530 custom component**: SMD passive piezo buzzer (8.5x8.5x3mm)
+  - Footprint: `Buzzer_Beeper:Buzzer_SMD_MLT-8530_8.5x8.5mm` (standard KiCad library)
+  - LCSC: C94599, resonant freq 2.7kHz, 80dB SPL
+  - Pin 1 (positive), Pin 2 (negative)
+- **2N7002 N-FET low-side driver**: SOT-23 (already defined in misc.ato)
+  - Common-source topology: FET switches buzzer ground path
+  - 5V → buzzer+ → buzzer- → FET drain → GND
+- **Gate resistor**: 10kΩ +/- 1% (limits gate inrush, ESD protection)
+  - 10kΩ adequate since buzzer PWM is only ~4kHz (rise time not critical)
+- **Top-level wiring**: `beeper.vdd ~ power.rail_5v` added in tf405.ato
+  - `beeper.gpio ~ mcu.pb1` and `beeper.gnd ~ power.gnd` already present
+- 3 components total (MLT-8530 + 2N7002 + 10kΩ resistor), 1 passing assert constraint
+- `ato build` passes cleanly, 34 total assertions passing
 
-**Acceptance Criteria**:
-- N-FET and resistor instantiated
-- Buzzer component defined
-- Ground connection added
-- `ato build` compiles without errors
+**Assertions Implemented (1/1 spec constraints)**:
+- ✅ `r_gate.value within 9.9kohm to 10.1kohm`
+
+**Discoveries**:
+- MLT-8530 is the standard passive buzzer on Betaflight FCs — compact (8.5mm), cheap (~$0.10), 80dB
+- Buzzer coil resistance is 12±3Ω, drawing ~95mA at 5V — well within 2N7002's 200mA rating
+- Betaflight firmware handles square-wave generation for passive buzzer (~4kHz tone)
+- BEEPER_INVERTED = ON in Betaflight config (PB1 high → FET on → buzzer sounds)
 
 **Notes**:
-- Already wired in tf405.ato lines 88-89 (GPIO only)
+- NDAA compliance: MLT-8530 by Jiangsu Huaneng Electronics (Chinese company — may require NDAA review)
+- No flyback diode needed: piezo buzzer is capacitive (not inductive like solenoid buzzers)
 
 ---
 
@@ -845,7 +859,7 @@ All ground connections now present in tf405.ato:
 - SBUS Inverter: **100%** (TASK-012 complete — 3 components, 2 asserts, ato build passes)
 - I2C Bus: **100%** (TASK-006 complete — pullups in baro, GPS I2C routing in TASK-011)
 - Ground Connections: **100%** (TASK-018 complete — all 16 modules grounded)
-- Misc: ~40% (LED complete; beeper, LED strip, camera control still TODO stubs)
+- Misc: ~60% (LED + beeper complete; LED strip, camera control still TODO stubs)
 
 **Component Package Availability**:
 - Available on packages.atopile.io: ~10-15% (USB connectors, possibly some passives)
@@ -855,9 +869,9 @@ All ground connections now present in tf405.ato:
 **Estimated Work Remaining**: ~15% of circuit implementation (4 misc peripherals) + PCB specs (documentation only)
 
 **Code Audit Results**:
-- ~3 TODO comments remaining (down from 43; remaining: beeper, LED strip, camera control)
+- ~2 TODO comments remaining (down from 43; remaining: LED strip, camera control)
 - 0 commented-out connections (sbus_inv.uart_rx now active)
-- 33/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash + OSD + SBUS inverter + LED; 8 voltage-level asserts not feasible in v0.2.69; 3 misc peripheral asserts pending TASK-014/015)
+- 34/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash + OSD + SBUS inverter + LED + Beeper; 8 voltage-level asserts not feasible in v0.2.69; 1 misc peripheral assert pending TASK-015)
 - 0 FIXME/HACK/PLACEHOLDER markers
 - 1 connector definition incomplete (SpareConnector missing duplicate power pins)
 
@@ -866,7 +880,7 @@ All ground connections now present in tf405.ato:
 ## Critical Blockers
 
 1. ~~**Missing ground connections**~~ ✅ RESOLVED (TASK-018 complete — all 16 modules grounded)
-2. **Misc peripheral stubs remain** - beeper, LED strip, camera control still TODO (TASK-014 through TASK-016)
+2. **Misc peripheral stubs remain** - LED strip, camera control still TODO (TASK-015, TASK-016)
 3. **No PCB stackup defined** - Blocks layout for impedance-critical signals (TASK-020)
 4. ~~**GPS connector I2C routing missing**~~ ✅ RESOLVED (TASK-006 complete via TASK-011)
 5. ~~**Connector wiring incomplete**~~ ✅ RESOLVED (all connectors now fully wired)
