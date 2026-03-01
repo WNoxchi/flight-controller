@@ -1,13 +1,103 @@
 # W25Q128JVSIQ Flash on SPI3 — See specs/flash-w25q128.md
+#
+# Design decisions:
+# - Winbond W25Q128JVSIQ in SOIC-8 package (208mil body width)
+# - 128Mbit (16MB) SPI NOR flash for Betaflight blackbox data logging
+# - Standard SPI mode (Mode 0 or Mode 3), up to 133MHz clock
+#   (run at MCU SPI3 clock speed, typically ~21MHz from 84MHz APB1/4)
+# - Pin 1 (/CS) → chip select from MCU PB7, directly driven (no pullup needed,
+#   MCU GPIO drives active low; /CS has internal pullup per datasheet)
+# - Pin 2 (DO) → SPI MISO data output
+# - Pin 3 (/WP) → write protect, tied to VCC via 10kΩ pullup to disable
+#   write protection (allows full read/write access for blackbox logging)
+# - Pin 4 (GND) → system ground
+# - Pin 5 (DI) → SPI MOSI data input
+# - Pin 6 (CLK) → SPI clock input
+# - Pin 7 (/HOLD) → hold input, tied to VCC via 10kΩ pullup to disable
+#   hold function (prevents accidental communication pause)
+# - Pin 8 (VCC) → 3.3V supply with 100nF decoupling capacitor
+#
+# Pullup resistors on /WP and /HOLD (10kΩ) chosen per spec recommendation.
+# Direct VCC tie would also work, but pullups provide slight ESD protection
+# and are consistent with the spec's "10kΩ pullups (or direct to VCC)" option.
 
+from "mcu.ato" import Capacitor, Resistor
+
+# ────────────────────────────────────────────────
+# W25Q128JVSIQ component definition (SOIC-8, 208mil)
+# Pin mapping from Winbond datasheet W25Q128JV Rev.I
+# ────────────────────────────────────────────────
+component W25Q128JVSIQ:
+    footprint = "Package_SO:SOIC-8_5.23x5.23mm_P1.27mm"
+    mpn = "W25Q128JVSIQ"
+    designator_prefix = "U"
+
+    # Pin 1: /CS — chip select (active low, directly driven by MCU GPIO)
+    signal cs ~ pin 1
+    # Pin 2: DO — data output (SPI MISO)
+    signal do ~ pin 2
+    # Pin 3: /WP — write protect (active low; tie high to disable protection)
+    signal wp ~ pin 3
+    # Pin 4: GND — ground
+    signal gnd ~ pin 4
+    # Pin 5: DI — data input (SPI MOSI)
+    signal di ~ pin 5
+    # Pin 6: CLK — serial clock
+    signal clk ~ pin 6
+    # Pin 7: /HOLD — hold (active low; tie high to disable hold function)
+    signal hold ~ pin 7
+    # Pin 8: VCC — power supply (2.7–3.6V)
+    signal vcc ~ pin 8
+
+# ────────────────────────────────────────────────
+# Flash_W25Q128 module: W25Q128JVSIQ + decoupling + /WP /HOLD pullups + assertions
+# ────────────────────────────────────────────────
 module Flash_W25Q128:
-    signal vcc
-    signal gnd
-    signal spi_sck
-    signal spi_miso
-    signal spi_mosi
-    signal cs
+    # Module interface signals (exposed to top-level tf405.ato)
+    signal vcc      # 3.3V power input
+    signal gnd      # System ground
+    signal spi_sck  # SPI3 clock (PC10)
+    signal spi_miso # SPI3 MISO (PC11)
+    signal spi_mosi # SPI3 MOSI (PB5)
+    signal cs       # Chip select (PB7, active low)
 
-    # TODO: Implement W25Q128 component with SOIC-8 footprint
-    # TODO: VCC 100nF decoupling
-    # TODO: /WP and /HOLD tied to VCC
+    # ── W25Q128 IC ──
+    flash = new W25Q128JVSIQ
+
+    # ── Power connections ──
+    flash.vcc ~ vcc
+    flash.gnd ~ gnd
+
+    # ── SPI connections ──
+    flash.clk ~ spi_sck     # SPI clock
+    flash.do ~ spi_miso     # SPI data out (MISO)
+    flash.di ~ spi_mosi     # SPI data in (MOSI)
+    flash.cs ~ cs            # Chip select (active low)
+
+    # ── /WP pullup to VCC (10kΩ) — disables write protection ──
+    # /WP active low: pulling high allows all write/erase operations.
+    # 10kΩ chosen per spec; provides slight ESD current limiting.
+    r_wp = new Resistor
+    r_wp.value = 10kohm +/- 1%
+    flash.wp ~ r_wp.p1; r_wp.p2 ~ vcc
+
+    # ── /HOLD pullup to VCC (10kΩ) — disables hold function ──
+    # /HOLD active low: pulling high ensures continuous SPI operation.
+    # Without this, floating /HOLD could pause communication unpredictably.
+    r_hold = new Resistor
+    r_hold.value = 10kohm +/- 1%
+    flash.hold ~ r_hold.p1; r_hold.p2 ~ vcc
+
+    # ── VCC decoupling (100nF, placed close to pin 8) ──
+    # Per Winbond datasheet: 100nF ceramic capacitor for supply bypassing
+    c_vcc = new Capacitor
+    c_vcc.value = 100nF +/- 10%
+    flash.vcc ~ c_vcc.p1; c_vcc.p2 ~ gnd
+
+    # ── Assert constraints (spec validation) ──
+    # Decoupling cap value per W25Q128 datasheet recommendation
+    assert c_vcc.value within 80nF to 120nF
+    # Note: VCC voltage-level assertion (2.7–3.6V) cannot be verified in
+    # atopile v0.2.69 — solver only handles passive component values, not
+    # rail voltages. Documented for reference:
+    # assert vcc within 2.7V to 3.6V    (datasheet requirement)

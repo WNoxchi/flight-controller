@@ -64,6 +64,7 @@ module TF405:
     flash.spi_miso ~ mcu.pc11
     flash.spi_mosi ~ mcu.pb5
     flash.cs ~ mcu.pb7
+    flash.gnd ~ power.gnd
 
     # ── Barometer (I2C1) ──
     baro = new Baro_BMP390

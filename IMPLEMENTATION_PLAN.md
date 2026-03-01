@@ -1,16 +1,16 @@
 # Flight Controller Implementation Plan
 
-**Last Updated**: 2026-03-01 — TASK-005 (Barometer BMP390) completed
+**Last Updated**: 2026-03-01 — TASK-007 (Flash W25Q128) completed
 
-**Status**: TASK-001, TASK-002, TASK-003, TASK-004, and TASK-005 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), and Barometer BMP390 (5 components, 4 asserts) fully implemented with clean `ato build`. 27 total assertions passing. Remaining tasks: flash, OSD, connectors, wiring, misc peripherals.
+**Status**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, and TASK-007 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), and Flash W25Q128 (4 components, 1 assert) fully implemented with clean `ato build`. 28 total assertions passing. Remaining tasks: OSD, connectors, wiring, misc peripherals.
 
-**Project State**: Foundation + USB + Sensors complete — MCU, power, USB, IMU, and baro modules implemented. 62 components total in BOM (32 unique). Build pipeline operational. I2C1 bus fully wired with pullups. Custom component patterns well-established for remaining ICs.
+**Project State**: Foundation + USB + Sensors + Flash complete — MCU, power, USB, IMU, baro, and flash modules implemented. 65 components total in BOM (33 unique). Build pipeline operational. I2C1 bus fully wired with pullups. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI3=W25Q128; SPI2=AT7456E pending). Custom component patterns well-established for remaining ICs.
 
 **Key Findings**:
-- ~13 TODO comments remain (down from 43 — MCU, power, USB, IMU, and baro TODOs resolved)
-- 27/44 assert statements implemented (MCU + Power + USB + IMU + Baro modules)
+- ~10 TODO comments remain (down from 43 — MCU, power, USB, IMU, baro, and flash TODOs resolved)
+- 28/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash modules)
 - 3 voltage-level assertions (rail_5v, rail_3v3, v_adc_vbat) cannot be verified in atopile v0.2.69 — solver only handles passive component values, not computed voltages
-- USB, IMU, and baro grounds now connected; remaining 13 modules still missing ground
+- USB, IMU, baro, and flash grounds now connected; remaining 12 modules still missing ground
 - Most connector wiring incomplete
 - No atopile packages available for custom ICs (W25Q128, AT7456E)
 - SpareConnector incomplete: missing duplicate power pins per spec (should be 6-pin, only 4 signals defined)
@@ -269,30 +269,42 @@
 
 ---
 
-### TASK-007: Implement Flash Memory W25Q128
+### TASK-007: Implement Flash Memory W25Q128 ✅ COMPLETE
 **Spec**: `specs/flash-w25q128.md`
-**File**: `src/flash.ato` (lines 11-13)
-**Current State**: SPI3 connections complete (PC10/PC11/PB5/PB7), component missing, ground missing
+**File**: `src/flash.ato`
+**Completed**: 2026-03-01
 **Priority**: MEDIUM - Needed for blackbox logging
 **Dependencies**: TASK-001 (SPI3), TASK-002 (3.3V rail)
 
-**Required Implementation**:
-- W25Q128JVSIQ component with SOIC-8 footprint (custom - no atopile package available)
-- VCC decoupling: 100nF
-- /WP and /HOLD pins tied to VCC (direct or via 10kΩ pullups)
-- Fix missing ground connection: `flash.gnd ~ power.gnd` in tf405.ato
+**Implementation Summary**:
+- **W25Q128JVSIQ SOIC-8 custom component**: full 8-pin mapping from Winbond datasheet W25Q128JV Rev.I
+  - Footprint: `Package_SO:SOIC-8_5.23x5.23mm_P1.27mm` (standard KiCad library)
+  - Pin 1 (/CS) → chip select from MCU PB7, directly driven (active low)
+  - Pin 2 (DO) → SPI MISO data output
+  - Pin 5 (DI) → SPI MOSI data input
+  - Pin 6 (CLK) → SPI clock input
+  - Pin 4 (GND) → system ground
+  - Pin 8 (VCC) → 3.3V supply
+- **/WP pullup**: 10kΩ +/- 1% to VCC (disables write protection for full blackbox access)
+- **/HOLD pullup**: 10kΩ +/- 1% to VCC (disables hold function, prevents communication pause)
+- **VCC decoupling**: 100nF +/- 10% ceramic capacitor close to pin 8
+- **Ground connection**: `flash.gnd ~ power.gnd` added in tf405.ato
+- 4 components total (W25Q128JVSIQ + 1 decoupling cap + 2 pullup resistors), 1 passing assert constraint
+- `ato build` passes cleanly, LCSC parts auto-resolved (C25804 for 10kΩ resistors, C14663 for 100nF cap)
 
-**Acceptance Criteria**:
-- Component instantiated with correct footprint
-- All 2 assert statements implemented:
-  - `vcc within 2.7V to 3.6V`
-  - `c_vcc.value within 80nF to 120nF`
-- Ground connection added in tf405.ato
-- `ato build` compiles without errors
+**Assertions Implemented (1/2 spec constraints)**:
+- ✅ `c_vcc.value within 80nF to 120nF`
+- ⚠️ `vcc within 2.7V to 3.6V` — cannot verify: atopile v0.2.69 solver handles passive values only
+
+**Discoveries**:
+- W25Q128JVSIQ SOIC-8 standard pinout: /CS(1), DO(2), /WP(3), GND(4), DI(5), CLK(6), /HOLD(7), VCC(8)
+- /CS has internal pullup per datasheet — no external pullup needed, MCU GPIO drives directly
+- 10kΩ pullups chosen for /WP and /HOLD per spec recommendation (provides slight ESD current limiting vs direct VCC tie)
+- Standard SPI Mode 0 or Mode 3, up to 133MHz — MCU SPI3 runs at ~21MHz (APB1=42MHz / prescaler)
 
 **Notes**:
+- NDAA compliance: Winbond (Taiwanese company, clean)
 - SPI3 pins correctly mapped: PC10 (SCK), PC11 (MISO), PB5 (MOSI), PB7 (CS)
-- No W25Q128 package available on packages.atopile.io - custom implementation required
 
 ---
 
@@ -625,8 +637,8 @@
 **Required Implementation**:
 Add ground connections in tf405.ato for all modules:
 - ~~`imu.gnd ~ power.gnd`~~ (done in TASK-004)
-- `baro.gnd ~ power.gnd`
-- `flash.gnd ~ power.gnd`
+- ~~`baro.gnd ~ power.gnd`~~ (done in TASK-005)
+- ~~`flash.gnd ~ power.gnd`~~ (done in TASK-007)
 - `osd.gnd ~ power.gnd`
 - `usb.gnd ~ power.gnd`
 - `led.gnd ~ power.gnd`
@@ -821,7 +833,7 @@ Add ground connections in tf405.ato for all modules:
 - MCU: **100%** (TASK-001 complete — 18 components, 11 asserts, ato build passes)
 - IMU: **100%** (TASK-004 complete — 3 components, 2 asserts, ato build passes)
 - Barometer: **100%** (TASK-005 complete — 5 components, 4 asserts, ato build passes)
-- Flash: ~40% (wiring done, component missing)
+- Flash: **100%** (TASK-007 complete — 4 components, 1 assert, ato build passes)
 - OSD: ~30% (wiring done, component + video path missing)
 - USB: **100%** (TASK-003 complete — 10 components, 5 asserts, ato build passes)
 - Motor/ESC: ~20% (connector defined, not wired)
@@ -833,12 +845,12 @@ Add ground connections in tf405.ato for all modules:
 - Custom implementation required: ~85-90% (all custom ICs)
 - Generic passives (Capacitor, Resistor) work with custom component defs + auto-selection
 
-**Estimated Work Remaining**: ~65% of circuit implementation + ~60% of constraint validation
+**Estimated Work Remaining**: ~60% of circuit implementation + ~55% of constraint validation
 
 **Code Audit Results**:
-- ~13 TODO comments remaining (down from 43)
+- ~10 TODO comments remaining (down from 43)
 - 1 commented-out connection (intentional: sbus_inv.uart_rx in tf405.ato)
-- 27/44 assert statements implemented (MCU + Power + USB + IMU + Baro modules; 7 voltage-level asserts not feasible in v0.2.69)
+- 28/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash modules; 8 voltage-level asserts not feasible in v0.2.69)
 - 0 FIXME/HACK/PLACEHOLDER markers
 - 1 connector definition incomplete (SpareConnector missing duplicate power pins)
 
@@ -846,11 +858,11 @@ Add ground connections in tf405.ato for all modules:
 
 ## Critical Blockers
 
-1. **Missing ground connections** - Systematic issue across all 16 modules (TASK-018)
+1. **Missing ground connections** - Systematic issue across 12 remaining modules (TASK-018)
 2. **Most component internals are TODO stubs** - MCU and Power done, sensors/peripherals still pending
 3. **No PCB stackup defined** - Blocks layout for impedance-critical signals (TASK-020)
 4. **GPS connector I2C routing missing** - GPS magnetometer I2C1 wiring needed (remaining TASK-006)
-5. **No atopile packages for custom ICs** - W25Q128, AT7456E need custom implementation
+5. **No atopile packages for custom ICs** - AT7456E needs custom implementation (W25Q128 done)
 
 ---
 
