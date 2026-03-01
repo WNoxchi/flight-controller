@@ -29,11 +29,15 @@ module GPSConnector:
     signal sda
 
 module SpareConnector:
-    # 6-pin JST-SH: GND, 5V, TX3, RX3, 5V, GND
+    # 6-pin JST-SH: GND(1), 5V(2), TX3(3), RX3(4), 5V(5), GND(6)
+    # Duplicate power/ground pins (5,6) provide additional current capacity
+    # and mechanical robustness for the JST-SH connector.
     signal gnd
     signal v5
     signal tx
     signal rx
+    signal v5_2    # pin 5: duplicate 5V for higher current capacity
+    signal gnd_2   # pin 6: duplicate GND for lower impedance return path
 
 module CameraConnector:
     # 3-pin JST-SH: GND, 5V, VOUT

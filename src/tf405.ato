@@ -181,7 +181,11 @@ module TF405:
     gps_conn.gnd ~ power.gnd
 
     # Spare Connector (UART3): general-purpose UART (MSP, telemetry, etc.)
+    # 6-pin JST-SH: GND(1), 5V(2), TX3(3), RX3(4), 5V(5), GND(6)
     spare_conn.tx ~ mcu.pb10   # UART3_TX
     spare_conn.rx ~ mcu.pb11   # UART3_RX
     spare_conn.v5 ~ power.rail_5v
     spare_conn.gnd ~ power.gnd
+    # Duplicate power/ground pins for higher current capacity
+    spare_conn.v5_2 ~ power.rail_5v
+    spare_conn.gnd_2 ~ power.gnd
