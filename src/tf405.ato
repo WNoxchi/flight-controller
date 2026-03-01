@@ -26,13 +26,17 @@ from "misc.ato" import StatusLED, Beeper, LEDStrip, CameraControl, SBUSInverter
 module TF405:
     # ── Power ──
     power = new PowerSystem
-    # VBAT input from ESC connector
-    # power.vbat ~ esc_conn.vbat  (wired via connector)
 
     # ── MCU ──
     mcu = new MCU_F405
     mcu.vdd ~ power.rail_3v3
     mcu.vdda ~ power.rail_3v3  # filtered separately inside MCU module
+
+    # Power ADC connections: battery voltage and current sense to MCU ADC
+    power.adc_vbat ~ mcu.pc2   # Battery voltage divider output -> ADC_VBAT
+    power.adc_curr ~ mcu.pc1   # Current sense filter output -> ADC_CURR
+    # PINIO1: MCU PB2 controls P-FET gate for VTX power switching
+    power.pinio1 ~ mcu.pb2
 
     # ── IMU (SPI1) ──
     imu = new IMU_BMI270

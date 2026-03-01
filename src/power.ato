@@ -1,17 +1,347 @@
-# Power subsystem: VBAT -> 5V Buck -> 3.3V LDO
+# Power subsystem: VBAT -> 5V Buck (MP1584EN) -> 3.3V LDO (AMS1117-3.3)
 # See specs/power.md for full requirements
+#
+# Design decisions:
+# - MP1584EN SOIC-8 buck converter: 4.5-28V input, 5V/3A output, 1.5MHz switching
+#   Feedback divider: R_fb_top=210kohm / R_fb_bot=40kohm sets Vout = 0.8V*(1+210/40) = 5.0V
+#   These are the datasheet-recommended values for 5V output.
+# - AMS1117-3.3 SOT-223 LDO: 5V input, 3.3V/1A output
+#   22uF tantalum output cap required for stability (ESR-dependent loop compensation)
+# - SMBJ26A TVS: clamp voltage ~29V protects against 6S voltage spikes
+# - Battery voltage divider: 10k/1k gives 10:1 ratio, 25.2V -> 2.29V (safe for 3.3V ADC)
+# - Current sense filter: 1kohm + 100nF RC low-pass, fc = 1/(2*pi*1k*100n) ~= 1.6kHz
+# - PINIO1: AO3401A P-FET high-side switch for VTX power control via PB2
+#   10kohm gate resistor limits gate current and provides noise immunity
+# - SS34 Schottky diode: USB power OR circuit prevents backfeed from BEC to USB host
 
+from "mcu.ato" import Capacitor, Resistor
+
+# ────────────────────────────────────────────────
+# MP1584EN Step-Down (Buck) Converter — SOIC-8
+# Pin mapping from MPS datasheet DS1001a Rev 1.1
+# Input: 4.5-28V, Output: adjustable, Max 3A, up to 1.5MHz switching
+# ────────────────────────────────────────────────
+component MP1584EN:
+    footprint = "SOIC-8_3.9x4.9mm_P1.27mm"
+    mpn = "MP1584EN-LF-Z"
+    designator_prefix = "U"
+    signal sw ~ pin 1      # Switch node output — connects to inductor
+    signal en ~ pin 2      # Enable (active high, internal pullup)
+    signal comp ~ pin 3    # Error amplifier compensation output
+    signal fb ~ pin 4      # Feedback input (0.8V reference)
+    signal gnd ~ pin 5     # Ground (also thermal pad)
+    signal freq ~ pin 6    # Switching frequency set (resistor to GND)
+    signal vin ~ pin 7     # Input supply (4.5-28V)
+    signal bst ~ pin 8     # Bootstrap supply for high-side driver
+
+# ────────────────────────────────────────────────
+# AMS1117-3.3 LDO Voltage Regulator — SOT-223
+# Pin mapping from AMS datasheet
+# Fixed 3.3V output, 1A max, dropout ~1.2V typical
+# Note: Tab (pin 4) is electrically connected to VOUT (pin 2)
+# ────────────────────────────────────────────────
+component AMS1117_3V3:
+    footprint = "SOT-223-3_TabPin2"
+    mpn = "AMS1117-3.3"
+    designator_prefix = "U"
+    signal gnd ~ pin 1     # Ground
+    signal vout ~ pin 2    # Regulated 3.3V output (also connected to tab)
+    signal vin ~ pin 3     # Input supply (4.5-15V recommended)
+
+# ────────────────────────────────────────────────
+# SMBJ26A TVS Diode — SMB package
+# Standoff voltage: 26V, Clamping voltage: ~42.1V @ 1A (protects 6S LiPo)
+# Unidirectional: cathode band toward VBAT (reverse-biased during normal operation)
+# ────────────────────────────────────────────────
+component TVS_SMBJ26A:
+    footprint = "D_SMB"
+    mpn = "SMBJ26A"
+    designator_prefix = "D"
+    signal anode ~ pin 1   # Connect to GND
+    signal cathode ~ pin 2 # Connect to VBAT (reverse-biased)
+
+# ────────────────────────────────────────────────
+# SS34 Schottky Diode — SMA package
+# 40V, 3A, Vf ~0.5V — used for USB power OR circuit
+# Forward: anode=VBUS, cathode=5V rail (current flows USB→rail)
+# ────────────────────────────────────────────────
+component Schottky_SS34:
+    footprint = "D_SMA"
+    mpn = "SS34"
+    designator_prefix = "D"
+    signal anode ~ pin 1
+    signal cathode ~ pin 2
+
+# ────────────────────────────────────────────────
+# AO3401A P-Channel MOSFET — SOT-23
+# Vds=-30V, Id=-4A, Rds(on)=50mohm @ Vgs=-10V
+# Used as high-side switch for VTX VBAT control (PINIO1)
+# Pin mapping: SOT-23 standard for P-FET
+# ────────────────────────────────────────────────
+component AO3401A:
+    footprint = "SOT-23"
+    mpn = "AO3401A"
+    designator_prefix = "Q"
+    signal gate ~ pin 1    # Gate — driven by MCU PB2 via 10k resistor
+    signal source ~ pin 2  # Source — connects to VBAT
+    signal drain ~ pin 3   # Drain — connects to VTX VBAT_SW output
+
+# ────────────────────────────────────────────────
+# Shielded Power Inductor — for MP1584EN buck output
+# 4.7uH, rated >= 3A saturation current
+# Use shielded type to minimize EMI on sensitive analog circuits
+# ────────────────────────────────────────────────
+component Inductor_4u7:
+    footprint = "L_6.3x6.3_H3"
+    mpn = "CDRH6D28HPNP-4R7NC"
+    designator_prefix = "L"
+    signal p1 ~ pin 1
+    signal p2 ~ pin 2
+
+# ────────────────────────────────────────────────
+# Electrolytic capacitor definitions
+# Generic electrolytic for bulk decoupling at specific voltages
+# ────────────────────────────────────────────────
+component ElectrolyticCap:
+    signal p1 ~ pin 1  # positive
+    signal p2 ~ pin 2  # negative (GND)
+    designator_prefix = "C"
+    mpn = "generic_capacitor"
+    value: capacitance
+
+# ────────────────────────────────────────────────
+# PowerSystem module: complete power distribution
+# ────────────────────────────────────────────────
 module PowerSystem:
-    # Power rails exposed to rest of system
-    signal vbat      # Raw battery input (7.4-25.2V)
-    signal rail_5v   # 5V regulated rail
-    signal rail_3v3  # 3.3V regulated rail
-    signal gnd       # Common ground
+    # ── Power rails exposed to rest of system ──
+    signal vbat      # Raw battery input (7.4-25.2V, 2-6S LiPo)
+    signal rail_5v   # 5V regulated rail (from MP1584EN buck)
+    signal rail_3v3  # 3.3V regulated rail (from AMS1117)
+    signal gnd       # Common ground reference
 
-    # TODO: Implement MP1584EN 5V buck regulator
-    # TODO: Implement AMS1117-3.3 LDO
-    # TODO: Implement VBAT TVS protection (SMBJ26A)
-    # TODO: Implement battery voltage divider (10k/1k to PC2)
-    # TODO: Implement current sense RC filter (1k + 100nF to PC1)
-    # TODO: Implement PINIO1 P-FET switch (AO3401A)
-    # TODO: Implement bulk decoupling caps
+    # ── Sensing signals (exposed to MCU ADC pins) ──
+    signal adc_vbat  # Battery voltage sense output (to PC2, ~2.29V at 6S max)
+    signal adc_curr  # Current sense filtered output (to PC1)
+
+    # ── Switchable output ──
+    signal vbat_sw   # PINIO1 switched VBAT output (to VTX connector)
+    signal pinio1    # PINIO1 gate control input (from MCU PB2)
+
+    # ── USB power OR input ──
+    signal usb_vbus  # USB VBUS input (for power OR with BEC 5V)
+
+    # ── ESC current sense input ──
+    signal curr_in   # Raw current sense from ESC connector
+
+    # ═══════════════════════════════════════════════
+    # SECTION 1: VBAT Input Protection
+    # TVS diode clamps voltage spikes (SMBJ26A, Vclamp ~42V)
+    # 100uF/50V electrolytic bulk cap near battery pads
+    # ═══════════════════════════════════════════════
+
+    # TVS diode: cathode to VBAT, anode to GND (reverse-biased normally)
+    tvs = new TVS_SMBJ26A
+    tvs.cathode ~ vbat
+    tvs.anode ~ gnd
+
+    # Bulk input capacitor: 100uF/50V electrolytic near battery connector
+    c_vbat_bulk = new ElectrolyticCap
+    c_vbat_bulk.value = 100uF +/- 20%
+    vbat ~ c_vbat_bulk.p1; c_vbat_bulk.p2 ~ gnd
+
+    # ═══════════════════════════════════════════════
+    # SECTION 2: 5V Buck Regulator (MP1584EN)
+    # Input: VBAT (7.4-25.2V), Output: 5V/3A
+    # Switching frequency set by R_freq, ~1MHz typical
+    # Feedback divider: 210k/40k for 5V output
+    # Compensation: series RC on COMP pin for loop stability
+    # ═══════════════════════════════════════════════
+
+    buck = new MP1584EN
+
+    # Input power connections
+    buck.vin ~ vbat
+    buck.gnd ~ gnd
+
+    # Enable: tie to VIN for always-on operation
+    # (EN has internal pullup, but explicit connection to VIN is more robust)
+    buck.en ~ vbat
+
+    # Input decoupling: 22uF/50V ceramic close to VIN pin
+    # Low ESR ceramic handles high-frequency switching current
+    c_buck_in = new Capacitor
+    c_buck_in.value = 22uF +/- 20%
+    buck.vin ~ c_buck_in.p1; c_buck_in.p2 ~ gnd
+
+    # Bootstrap capacitor: 100nF between BST and SW pins
+    # Charges during off-time, provides gate drive for high-side FET
+    c_bst = new Capacitor
+    c_bst.value = 100nF +/- 10%
+    buck.bst ~ c_bst.p1; c_bst.p2 ~ buck.sw
+
+    # Output inductor: 4.7uH/3A shielded, connects SW to output
+    inductor = new Inductor_4u7
+    buck.sw ~ inductor.p1; inductor.p2 ~ rail_5v
+
+    # Schottky diode: catch diode for buck converter
+    # Anode to GND, cathode to SW node — conducts during off-time
+    d_buck = new Schottky_SS34
+    d_buck.anode ~ gnd
+    d_buck.cathode ~ buck.sw
+
+    # Output decoupling: 22uF/16V ceramic close to output
+    c_buck_out = new Capacitor
+    c_buck_out.value = 22uF +/- 20%
+    rail_5v ~ c_buck_out.p1; c_buck_out.p2 ~ gnd
+
+    # Feedback resistor divider: sets Vout = 0.8V * (1 + R_fb_top/R_fb_bot)
+    # 210kohm / 40kohm => 0.8 * (1 + 5.25) = 0.8 * 6.25 = 5.0V
+    # Using datasheet-recommended values for 5V output
+    r_fb_top = new Resistor
+    r_fb_top.value = 210kohm +/- 1%
+    rail_5v ~ r_fb_top.p1; r_fb_top.p2 ~ buck.fb
+
+    r_fb_bot = new Resistor
+    r_fb_bot.value = 40kohm +/- 1%
+    buck.fb ~ r_fb_bot.p1; r_fb_bot.p2 ~ gnd
+
+    # Frequency set resistor: 100kohm to GND gives ~300kHz switching
+    # Higher frequency = smaller inductor but more switching loss
+    # 300kHz is a good trade-off for drone applications (EMI vs efficiency)
+    r_freq = new Resistor
+    r_freq.value = 100kohm +/- 1%
+    buck.freq ~ r_freq.p1; r_freq.p2 ~ gnd
+
+    # Compensation network on COMP pin for loop stability
+    # Series RC: 100kohm + 150pF — tunes error amplifier bandwidth
+    r_comp = new Resistor
+    r_comp.value = 100kohm +/- 1%
+    c_comp = new Capacitor
+    c_comp.value = 150pF +/- 10%
+    buck.comp ~ r_comp.p1; r_comp.p2 ~ c_comp.p1; c_comp.p2 ~ gnd
+
+    # ═══════════════════════════════════════════════
+    # SECTION 3: 3.3V LDO (AMS1117-3.3)
+    # Input: 5V rail, Output: 3.3V
+    # Power dissipation: (5.0-3.3) * 0.2A = 0.34W — trivial for SOT-223
+    # ═══════════════════════════════════════════════
+
+    ldo = new AMS1117_3V3
+    ldo.vin ~ rail_5v
+    ldo.vout ~ rail_3v3
+    ldo.gnd ~ gnd
+
+    # Input cap: 10uF ceramic close to LDO input pin
+    c_ldo_in = new Capacitor
+    c_ldo_in.value = 10uF +/- 20%
+    ldo.vin ~ c_ldo_in.p1; c_ldo_in.p2 ~ gnd
+
+    # Output cap: 22uF tantalum close to LDO output (REQUIRED for stability)
+    # AMS1117 requires output cap with ESR in 0.1-0.5 ohm range (tantalum ideal)
+    # Low-ESR ceramic MLCCs can cause oscillation on AMS1117
+    c_ldo_out = new ElectrolyticCap
+    c_ldo_out.value = 22uF +/- 20%
+    ldo.vout ~ c_ldo_out.p1; c_ldo_out.p2 ~ gnd
+
+    # ═══════════════════════════════════════════════
+    # SECTION 4: Battery Voltage Sensing
+    # Resistor divider: 10kohm / 1kohm = 10:1 ratio
+    # At max 6S (25.2V): 25.2 * 1/(10+1) = 2.29V (safe for 3.3V ADC)
+    # 100nF filter cap across bottom resistor (low-pass with 1kohm ~ 1.6kHz)
+    # Output goes to MCU PC2 (ADC_VBAT)
+    # ═══════════════════════════════════════════════
+
+    r_vbat_top = new Resistor
+    r_vbat_top.value = 10kohm +/- 1%
+    vbat ~ r_vbat_top.p1; r_vbat_top.p2 ~ adc_vbat
+
+    r_vbat_bot = new Resistor
+    r_vbat_bot.value = 1kohm +/- 1%
+    adc_vbat ~ r_vbat_bot.p1; r_vbat_bot.p2 ~ gnd
+
+    # Filter cap across bottom resistor reduces ADC noise
+    c_vbat_filter = new Capacitor
+    c_vbat_filter.value = 100nF +/- 10%
+    adc_vbat ~ c_vbat_filter.p1; c_vbat_filter.p2 ~ gnd
+
+    # ═══════════════════════════════════════════════
+    # SECTION 5: Current Sensing
+    # ESC provides analog current output — filter before ADC
+    # RC low-pass: 1kohm + 100nF, fc = 1/(2*pi*1k*100n) ~= 1.6kHz
+    # Output goes to MCU PC1 (ADC_CURR)
+    # ═══════════════════════════════════════════════
+
+    r_curr_filter = new Resistor
+    r_curr_filter.value = 1kohm +/- 1%
+    curr_in ~ r_curr_filter.p1; r_curr_filter.p2 ~ adc_curr
+
+    c_curr_filter = new Capacitor
+    c_curr_filter.value = 100nF +/- 10%
+    adc_curr ~ c_curr_filter.p1; c_curr_filter.p2 ~ gnd
+
+    # ═══════════════════════════════════════════════
+    # SECTION 6: PINIO1 P-FET Switch (VTX power control)
+    # AO3401A P-FET: Source=VBAT, Drain=VBAT_SW (to VTX connector)
+    # MCU PB2 drives gate through 10kohm resistor
+    # PB2 LOW = Vgs negative = FET ON (VBAT passes to VTX)
+    # PB2 HIGH = Vgs ~0 = FET OFF (VTX powered down / pit mode)
+    # Note: PB2 also has 10k pulldown in MCU module (BOOT1 requirement),
+    # which keeps the FET ON by default — VTX powered at startup
+    # ═══════════════════════════════════════════════
+
+    pinio_fet = new AO3401A
+    pinio_fet.source ~ vbat
+    pinio_fet.drain ~ vbat_sw
+
+    r_pinio_gate = new Resistor
+    r_pinio_gate.value = 10kohm +/- 1%
+    pinio1 ~ r_pinio_gate.p1; r_pinio_gate.p2 ~ pinio_fet.gate
+
+    # ═══════════════════════════════════════════════
+    # SECTION 7: USB Power OR Circuit
+    # SS34 Schottky: VBUS -> 5V rail (forward biased when USB powered)
+    # Prevents backfeed from BEC 5V into USB host
+    # When BEC is active (5V > VBUS-Vf), Schottky reverse-biased = no backfeed
+    # When only USB: VBUS - 0.5V forward drop ~= 4.5V on 5V rail (enough for 3.3V LDO)
+    # 4.7uF decoupling on VBUS after Schottky
+    # ═══════════════════════════════════════════════
+
+    d_usb = new Schottky_SS34
+    d_usb.anode ~ usb_vbus
+    d_usb.cathode ~ rail_5v
+
+    # VBUS decoupling after Schottky — note: this is on the 5V rail side
+    # Additional decoupling specifically for USB power path
+    c_usb_vbus = new Capacitor
+    c_usb_vbus.value = 4.7uF +/- 10%
+    d_usb.cathode ~ c_usb_vbus.p1; c_usb_vbus.p2 ~ gnd
+
+    # ═══════════════════════════════════════════════
+    # SECTION 8: Bulk Decoupling
+    # 5V rail: 100uF electrolytic near BEC output (absorbs load transients)
+    # 3.3V rail: 22uF tantalum near LDO output (additional bulk storage)
+    # ═══════════════════════════════════════════════
+
+    c_5v_bulk = new ElectrolyticCap
+    c_5v_bulk.value = 100uF +/- 20%
+    rail_5v ~ c_5v_bulk.p1; c_5v_bulk.p2 ~ gnd
+
+    c_3v3_bulk = new ElectrolyticCap
+    c_3v3_bulk.value = 22uF +/- 20%
+    rail_3v3 ~ c_3v3_bulk.p1; c_3v3_bulk.p2 ~ gnd
+
+    # ═══════════════════════════════════════════════
+    # Assert Constraints (from specs/power.md)
+    # Validates component values meet design requirements
+    # ═══════════════════════════════════════════════
+
+    # Battery voltage divider: 10:1 ratio components
+    assert r_vbat_top.value within 9.9kohm to 10.1kohm
+    assert r_vbat_bot.value within 990ohm to 1.01kohm
+
+    # Current sense filter components
+    assert r_curr_filter.value within 900ohm to 1.1kohm
+    assert c_curr_filter.value within 80nF to 120nF
+
+    # PINIO1 gate resistor
+    assert r_pinio_gate.value within 9.9kohm to 10.1kohm
