@@ -1,15 +1,15 @@
 # AT7456E OSD on SPI2 — See specs/osd-at7456e.md
 
 module OSD_AT7456E:
-    dvdd = new Electrical
-    avdd = new Electrical
-    gnd = new Electrical
-    spi_sck = new Electrical
-    spi_miso = new Electrical
-    spi_mosi = new Electrical
-    cs = new Electrical
-    video_in = new Electrical
-    video_out = new Electrical
+    signal dvdd
+    signal avdd
+    signal gnd
+    signal spi_sck
+    signal spi_miso
+    signal spi_mosi
+    signal cs
+    signal video_in
+    signal video_out
 
     # TODO: Implement AT7456E component with TQFP-28 footprint
     # TODO: DVDD 100nF decoupling

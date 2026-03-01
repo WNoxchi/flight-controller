@@ -1,14 +1,14 @@
 # BMI270 IMU on SPI1 — See specs/imu-bmi270.md
 
 module IMU_BMI270:
-    vdd = new Electrical
-    gnd = new Electrical
-    spi_sck = new Electrical
-    spi_miso = new Electrical
-    spi_mosi = new Electrical
-    cs = new Electrical
-    exti = new Electrical
+    signal vdd
+    signal gnd
+    signal spi_sck
+    signal spi_miso
+    signal spi_mosi
+    signal cs
+    signal exti
 
     # TODO: Implement BMI270 component with LGA-14 footprint
     # TODO: VDD + VDDIO decoupling (100nF each)
-    # TODO: CS pulled high with 10kΩ when not selected (optional)
+    # TODO: CS pulled high with 10k when not selected (optional)

@@ -13,15 +13,15 @@
 #     USB   → USB-C for DFU/configurator
 #     ADC   → VBAT sense, current sense, RSSI
 
-from "src/power.ato" import PowerSystem
-from "src/mcu.ato" import MCU_F405
-from "src/imu.ato" import IMU_BMI270
-from "src/osd.ato" import OSD_AT7456E
-from "src/flash.ato" import Flash_W25Q128
-from "src/baro.ato" import Baro_BMP390
-from "src/usb.ato" import USB_C_Interface
-from "src/connectors.ato" import ESCConnector, RXConnector, GPSConnector, SpareConnector, CameraConnector, VTXConnector
-from "src/misc.ato" import StatusLED, Beeper, LEDStrip, CameraControl, SBUSInverter
+from "power.ato" import PowerSystem
+from "mcu.ato" import MCU_F405
+from "imu.ato" import IMU_BMI270
+from "osd.ato" import OSD_AT7456E
+from "flash.ato" import Flash_W25Q128
+from "baro.ato" import Baro_BMP390
+from "usb.ato" import USB_C_Interface
+from "connectors.ato" import ESCConnector, RXConnector, GPSConnector, SpareConnector, CameraConnector, VTXConnector
+from "misc.ato" import StatusLED, Beeper, LEDStrip, CameraControl, SBUSInverter
 
 module TF405:
     # ── Power ──

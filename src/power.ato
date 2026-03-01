@@ -1,12 +1,12 @@
-# Power subsystem: VBAT → 5V Buck → 3.3V LDO
+# Power subsystem: VBAT -> 5V Buck -> 3.3V LDO
 # See specs/power.md for full requirements
 
 module PowerSystem:
     # Power rails exposed to rest of system
-    vbat = new Electrical    # Raw battery input (7.4-25.2V)
-    rail_5v = new Electrical  # 5V regulated rail
-    rail_3v3 = new Electrical # 3.3V regulated rail
-    gnd = new Electrical      # Common ground
+    signal vbat      # Raw battery input (7.4-25.2V)
+    signal rail_5v   # 5V regulated rail
+    signal rail_3v3  # 3.3V regulated rail
+    signal gnd       # Common ground
 
     # TODO: Implement MP1584EN 5V buck regulator
     # TODO: Implement AMS1117-3.3 LDO

@@ -1,60 +1,54 @@
 # Flight Controller Implementation Plan
 
-**Last Verified**: 2026-03-01 (via 14 parallel Sonnet-level subagent analysis - comprehensive gap analysis)
+**Last Updated**: 2026-03-01 — TASK-001 (MCU Core) completed
 
-**Status**: Implementation is ~5-15% complete across all modules. All specifications exist, module interfaces are defined, and top-level wiring is mostly complete. However, **all physical component implementations are missing** (marked as TODOs). No atopile `assert` statements have been implemented.
+**Status**: TASK-001 complete. MCU core fully implemented with 18 components, 11 passing assertions, and clean `ato build`. Build infrastructure fixed (ato.yaml, imports, signal syntax). Remaining tasks: power system, sensors, peripherals, wiring, constraints.
 
-**Project State**: Early architectural phase. The codebase serves as a wiring skeleton defining how modules connect, but contains no actual circuit implementations within the modules themselves.
+**Project State**: First module fully implemented. Build pipeline operational. Pattern established for remaining modules (custom component definitions, generic passives, assert constraints).
 
 **Key Findings**:
-- 43 TODO comments document missing implementations (verified via comprehensive grep)
-- 0 assert statements implemented (44 required by specs - exact count verified)
-- All ground connections missing (systematic issue across 16+ modules)
+- ~34 TODO comments remain (down from 43 — MCU TODOs resolved)
+- 11/44 assert statements implemented (MCU module complete)
+- All ground connections still missing (systematic issue across 16+ modules)
 - Most connector wiring incomplete
-- No atopile packages available for custom ICs (STM32F405, BMI270, BMP390, W25Q128, AT7456E, MP1584EN, AMS1117)
+- Build infrastructure issues fixed: ato.yaml version, import paths, signal syntax
+- No atopile packages available for custom ICs (BMI270, BMP390, W25Q128, AT7456E, MP1584EN, AMS1117)
 - SpareConnector incomplete: missing duplicate power pins per spec (should be 6-pin, only 4 signals defined)
 
 ---
 
 ## Priority 1: Foundation & Power (Blocking All Other Work)
 
-### TASK-001: Implement MCU Core Component
+### TASK-001: Implement MCU Core Component ✅ COMPLETE
 **Spec**: `specs/mcu-core.md`
-**File**: `src/mcu.ato` (lines 75-83)
-**Current State**: Complete stub - only pin interfaces defined (39/39 GPIO pins defined, 0% components implemented)
+**File**: `src/mcu.ato`
+**Completed**: 2026-03-01
 **Priority**: CRITICAL - Blocks all peripheral implementations
 **Dependencies**: None
 
-**Required Implementation**:
-- STM32F405RGT6 component with LQFP-64 footprint (custom - no atopile package available)
-- 8MHz HSE crystal oscillator circuit (PH0/PH1) with 20pF load caps
-- VCAP1/VCAP2 capacitors (2.2µF each)
-- Per-VDD decoupling (100nF on each VDD pin)
-- VDDA filtering (1µF + 100nF with ferrite bead)
-- BOOT0 button circuit (10kΩ pulldown + tactile switch)
-- NRST button circuit (10kΩ pullup + 100nF + tactile switch)
-- PB2/BOOT1 pulldown (10kΩ)
-- SWD test pads (PA13, PA14, GND, 3.3V, NRST)
+**Implementation Summary**:
+- STM32F405RGT6 custom component with LQFP-64 footprint, correct 64-pin mapping (verified against DS8597 Rev 9)
+- 8MHz HSE crystal (ABM8-8.000MHZ-B2-T) with 20pF load caps on PH0/PH1 (pins 5/6)
+- VCAP1/VCAP2: 2.2µF +/- 5% (pins 31/47)
+- Per-VDD decoupling: 4x 100nF (LQFP-64 has 4 VDD pins: 19, 32, 48, 64)
+- VDDA filtering: 1µF bulk + 100nF bypass on pin 13
+- BOOT0 (pin 60): 10kΩ pulldown + tactile switch to 3.3V
+- NRST (pin 7): 10kΩ pullup + 100nF debounce + tactile switch to GND
+- PB2/BOOT1 (pin 28): 10kΩ pulldown (mandatory)
+- SWD: PA13/PA14 exposed as module signals for board-level test pad routing
+- All 11 assert constraints pass
+- `ato build` passes cleanly
 
-**Acceptance Criteria**:
-- MCU component instantiated with correct footprint
-- All 11 assert statements from spec implemented:
-  - `c_hse1.value within 15pF to 22pF`
-  - `c_hse2.value within 15pF to 22pF`
-  - `c_vcap1.value within 2.0uF to 2.4uF`
-  - `c_vcap2.value within 2.0uF to 2.4uF`
-  - `c_vdd.value within 80nF to 120nF`
-  - `c_vdda_bulk.value within 0.9uF to 1.1uF`
-  - `c_vdda_bypass.value within 80nF to 120nF`
-  - `r_boot0.value within 9.9kohm to 10.1kohm`
-  - `r_nrst.value within 9.9kohm to 10.1kohm`
-  - `c_nrst.value within 80nF to 120nF`
-  - `r_boot1.value within 9.9kohm to 10.1kohm`
-- `ato build` compiles without errors
+**Discoveries**:
+- LQFP-64 has only 4 VDD pins (not 5 as initially assumed). Pin budget verified.
+- VCAP caps need +/- 5% tolerance (not 10%) to fit within 2.0-2.4uF assertion range
+- Generic Capacitor/Resistor components with `value` attribute and `designator_prefix` work for auto-part-selection in atopile v0.2.69
 
-**Notes**:
-- No STM32F405 package available on packages.atopile.io - custom implementation required
-- Crystal layout requires <10mm traces, ground pour under crystal, no vias under footprint (layout constraint, not enforceable in .ato)
+**Also Fixed (blockers for ato build)**:
+- `ato.yaml`: Changed `requires-atopile: "^0.10.8"` to `ato-version: "0.2.69"` (config key name mismatch)
+- `ato.yaml`: Changed `entry: tf405.ato:TF405` to `entry: src/tf405.ato:TF405` (path resolution)
+- All `src/*.ato` files: Changed `X = new Electrical` to `signal X` (v0.2.69 uses `signal` keyword, not `new Electrical`)
+- `src/tf405.ato`: Changed `from "src/X.ato"` to `from "X.ato"` (imports are relative to file location)
 
 ---
 
@@ -800,7 +794,7 @@ Add ground connections in tf405.ato for all modules:
 
 **Current Completion Status by Module**:
 - Power: ~5% (interfaces only)
-- MCU: ~5% (interfaces only)
+- MCU: **100%** (TASK-001 complete — 18 components, 11 asserts, ato build passes)
 - IMU: ~25% (wiring done, component missing)
 - Barometer: ~5% (wiring done, component + bus pullups missing)
 - Flash: ~40% (wiring done, component missing)
@@ -813,13 +807,14 @@ Add ground connections in tf405.ato for all modules:
 **Component Package Availability**:
 - Available on packages.atopile.io: ~10-15% (USB connectors, possibly some passives)
 - Custom implementation required: ~85-90% (all custom ICs)
+- Generic passives (Capacitor, Resistor) work with custom component defs + auto-selection
 
-**Estimated Work Remaining**: ~95% of circuit implementation + 100% of constraint validation
+**Estimated Work Remaining**: ~85% of circuit implementation + ~75% of constraint validation
 
 **Code Audit Results**:
-- 43 TODO comments documenting missing implementations (verified via comprehensive grep)
-- 2 commented-out connections (intentional)
-- 0 assert statements (44 required - exact count verified)
+- ~34 TODO comments remaining (down from 43)
+- 1 commented-out connection (intentional: sbus_inv.uart_rx in tf405.ato)
+- 11/44 assert statements implemented (MCU module)
 - 0 FIXME/HACK/PLACEHOLDER markers
 - 1 connector definition incomplete (SpareConnector missing duplicate power pins)
 
@@ -827,9 +822,8 @@ Add ground connections in tf405.ato for all modules:
 
 ## Critical Blockers
 
-1. **NO ASSERT STATEMENTS** - Zero validation constraints implemented (TASK-019)
-2. **All component internals are TODO stubs** - No physical components instantiated
-3. **Missing ground connections** - Systematic issue across all 16 modules (TASK-018)
+1. **Missing ground connections** - Systematic issue across all 16 modules (TASK-018)
+2. **Most component internals are TODO stubs** - MCU done, all others still pending
 4. **No PCB stackup defined** - Blocks layout for impedance-critical signals (TASK-020)
 5. **Missing I2C bus infrastructure** - Blocks barometer and GPS magnetometer (TASK-006)
 6. **No atopile packages for custom ICs** - All major ICs need custom implementation

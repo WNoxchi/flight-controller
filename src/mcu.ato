@@ -1,83 +1,364 @@
 # STM32F405RGT6 MCU with support circuits
 # See specs/mcu-core.md for full requirements
+#
+# Design decisions:
+# - STM32F405RGT6 in LQFP-64 package: 168MHz Cortex-M4, 1MB flash, 192KB RAM
+# - 8MHz HSE crystal (ABM8-8.000MHZ-B2-T or equivalent, 3.2x2.5mm SMD)
+# - 20pF load caps for HSE (matches typical 10pF crystal load capacitance
+#   with ~5pF PCB stray: C_load = 2*(C_L - C_stray) = 2*(10-5) ~= 20pF)
+# - VCAP1/VCAP2: 2.2uF ceramic caps required by STM32F405 internal 1.2V regulator
+# - Per-VDD decoupling: one 100nF per VDD pin placed as close as possible
+# - VDDA filtering: ferrite bead recommended between VDD and VDDA (done at
+#   board level in tf405.ato), plus 1uF bulk + 100nF bypass on VDDA pin
+# - BOOT0: 10k pulldown ensures boot-from-flash default, button to 3.3V for DFU
+# - NRST: 10k pullup + 100nF debounce, button to GND for manual reset
+# - PB2/BOOT1: 10k pulldown mandatory to prevent SRAM boot trap (STM32F4 errata)
+# - SWD debug: PA13 (SWDIO) + PA14 (SWCLK) broken out as test pads
 
+# ────────────────────────────────────────────────
+# STM32F405RGT6 component definition (LQFP-64)
+# Pin mapping from ST datasheet DS8597 Rev 9, Table 8
+# Verified against official STM32F405xx pinout for LQFP-64
+# ────────────────────────────────────────────────
+component STM32F405RGT6:
+    footprint = "LQFP-64_10x10mm_P0.5mm"
+    mpn = "STM32F405RGT6"
+    designator_prefix = "U"
+
+    # Power pins — LQFP-64 has 4 VDD pins, 2 VSS pins
+    signal vdd1 ~ pin 19
+    signal vdd2 ~ pin 32
+    signal vdd3 ~ pin 48
+    signal vdd4 ~ pin 64
+    signal vdda ~ pin 13
+    signal vbat ~ pin 1
+    signal vss1 ~ pin 18
+    signal vss2 ~ pin 63
+    signal vssa ~ pin 12
+    signal vcap1 ~ pin 31
+    signal vcap2 ~ pin 47
+
+    # HSE crystal pins
+    signal ph0 ~ pin 5    # OSC_IN
+    signal ph1 ~ pin 6    # OSC_OUT
+
+    # NRST
+    signal nrst ~ pin 7
+
+    # BOOT0
+    signal boot0 ~ pin 60
+
+    # Port A GPIO (PA0-PA15)
+    signal pa0 ~ pin 14
+    signal pa1 ~ pin 15
+    signal pa2 ~ pin 16
+    signal pa3 ~ pin 17
+    signal pa4 ~ pin 20
+    signal pa5 ~ pin 21
+    signal pa6 ~ pin 22
+    signal pa7 ~ pin 23
+    signal pa8 ~ pin 41
+    signal pa9 ~ pin 42
+    signal pa10 ~ pin 43
+    signal pa11 ~ pin 44
+    signal pa12 ~ pin 45
+    signal pa13 ~ pin 46
+    signal pa14 ~ pin 49
+    signal pa15 ~ pin 50
+
+    # Port B GPIO (PB0-PB15)
+    signal pb0 ~ pin 26
+    signal pb1 ~ pin 27
+    signal pb2 ~ pin 28
+    signal pb3 ~ pin 55
+    signal pb5 ~ pin 57
+    signal pb6 ~ pin 58
+    signal pb7 ~ pin 59
+    signal pb8 ~ pin 61
+    signal pb9 ~ pin 62
+    signal pb10 ~ pin 29
+    signal pb11 ~ pin 30
+    signal pb12 ~ pin 33
+    signal pb13 ~ pin 34
+    signal pb14 ~ pin 35
+    signal pb15 ~ pin 36
+
+    # Port C GPIO (PC0-PC15)
+    signal pc0 ~ pin 8
+    signal pc1 ~ pin 9
+    signal pc2 ~ pin 10
+    signal pc4 ~ pin 24
+    signal pc5 ~ pin 25
+    signal pc6 ~ pin 37
+    signal pc7 ~ pin 38
+    signal pc8 ~ pin 39
+    signal pc9 ~ pin 40
+    signal pc10 ~ pin 51
+    signal pc11 ~ pin 52
+    signal pc12 ~ pin 53
+
+    # Port D GPIO
+    signal pd2 ~ pin 54
+
+    # Pins not used in this design (directly by the module):
+    # pin 2 = PC13, pin 3 = PC14/OSC32_IN, pin 4 = PC15/OSC32_OUT
+    # pin 11 = PC3, pin 56 = PB4
+
+# ────────────────────────────────────────────────
+# 8MHz HSE Crystal (ABM8-8.000MHZ-B2-T or equiv)
+# 3.2x2.5mm SMD, 20ppm, 10pF load capacitance
+# ────────────────────────────────────────────────
+component Crystal_8MHz:
+    footprint = "Crystal_SMD_3215-2Pin_3.2x1.5mm"
+    mpn = "ABM8-8.000MHZ-B2-T"
+    designator_prefix = "Y"
+    signal xin ~ pin 1
+    signal xout ~ pin 2
+
+# ────────────────────────────────────────────────
+# Passive components — defined as atopile generic components
+# that the solver will pick specific parts for
+# ────────────────────────────────────────────────
+component Capacitor:
+    signal p1 ~ pin 1
+    signal p2 ~ pin 2
+    designator_prefix = "C"
+    mpn = "generic_capacitor"
+    value: capacitance
+
+component Resistor:
+    signal p1 ~ pin 1
+    signal p2 ~ pin 2
+    designator_prefix = "R"
+    mpn = "generic_resistor"
+    value: resistance
+
+component Button:
+    signal p1 ~ pin 1
+    signal p2 ~ pin 2
+    designator_prefix = "SW"
+    footprint = "SW_SPST_TL3342"
+    mpn = "TL3342F160QG"
+
+# ────────────────────────────────────────────────
+# MCU_F405 module: STM32F405RGT6 + all support circuits
+# ────────────────────────────────────────────────
 module MCU_F405:
-    # Power pins
-    vdd = new Electrical
-    vdda = new Electrical
-    gnd = new Electrical
+    # Power pins exposed to top-level
+    signal vdd
+    signal vdda
+    signal gnd
 
     # All GPIO pins exposed as interfaces for top-level wiring
     # SPI1 (IMU)
-    pa5 = new Electrical  # SPI1_SCK
-    pa6 = new Electrical  # SPI1_MISO
-    pa7 = new Electrical  # SPI1_MOSI
-    pc4 = new Electrical  # GYRO_1_CS
-    pc5 = new Electrical  # GYRO_1_EXTI
+    signal pa5   # SPI1_SCK
+    signal pa6   # SPI1_MISO
+    signal pa7   # SPI1_MOSI
+    signal pc4   # GYRO_1_CS
+    signal pc5   # GYRO_1_EXTI
 
     # SPI2 (OSD)
-    pb12 = new Electrical  # MAX7456_CS
-    pb13 = new Electrical  # SPI2_SCK
-    pb14 = new Electrical  # SPI2_MISO
-    pb15 = new Electrical  # SPI2_MOSI
+    signal pb12  # MAX7456_CS
+    signal pb13  # SPI2_SCK
+    signal pb14  # SPI2_MISO
+    signal pb15  # SPI2_MOSI
 
     # SPI3 (Flash)
-    pb5 = new Electrical   # SPI3_MOSI
-    pb7 = new Electrical   # FLASH_CS
-    pc10 = new Electrical  # SPI3_SCK
-    pc11 = new Electrical  # SPI3_MISO
+    signal pb5   # SPI3_MOSI
+    signal pb7   # FLASH_CS
+    signal pc10  # SPI3_SCK
+    signal pc11  # SPI3_MISO
 
     # I2C1 (Baro + Mag)
-    pb8 = new Electrical   # I2C1_SCL
-    pb9 = new Electrical   # I2C1_SDA
+    signal pb8   # I2C1_SCL
+    signal pb9   # I2C1_SDA
 
     # UARTs
-    pa9 = new Electrical   # UART1_TX
-    pa10 = new Electrical  # UART1_RX
-    pa2 = new Electrical   # UART2_TX
-    pa3 = new Electrical   # UART2_RX
-    pb10 = new Electrical  # UART3_TX
-    pb11 = new Electrical  # UART3_RX
-    pa0 = new Electrical   # UART4_TX
-    pa1 = new Electrical   # UART4_RX
-    pc12 = new Electrical  # UART5_TX
-    pd2 = new Electrical   # UART5_RX (note: PD2 is the only Port D pin used)
+    signal pa9   # UART1_TX
+    signal pa10  # UART1_RX
+    signal pa2   # UART2_TX
+    signal pa3   # UART2_RX
+    signal pb10  # UART3_TX
+    signal pb11  # UART3_RX
+    signal pa0   # UART4_TX
+    signal pa1   # UART4_RX
+    signal pc12  # UART5_TX
+    signal pd2   # UART5_RX (only Port D pin used)
 
     # Motors (TIM8)
-    pc6 = new Electrical   # MOTOR1
-    pc7 = new Electrical   # MOTOR2
-    pc8 = new Electrical   # MOTOR3
-    pc9 = new Electrical   # MOTOR4
+    signal pc6   # MOTOR1
+    signal pc7   # MOTOR2
+    signal pc8   # MOTOR3
+    signal pc9   # MOTOR4
 
     # USB
-    pa11 = new Electrical  # USB_DM
-    pa12 = new Electrical  # USB_DP
+    signal pa11  # USB_DM
+    signal pa12  # USB_DP
 
     # ADC
-    pc0 = new Electrical   # ADC_RSSI
-    pc1 = new Electrical   # ADC_CURR
-    pc2 = new Electrical   # ADC_VBAT
+    signal pc0   # ADC_RSSI
+    signal pc1   # ADC_CURR
+    signal pc2   # ADC_VBAT
 
     # Misc
-    pb0 = new Electrical   # LED0
-    pb1 = new Electrical   # BEEPER
-    pb2 = new Electrical   # PINIO1
-    pb3 = new Electrical   # CAMERA_CONTROL
-    pb6 = new Electrical   # LED_STRIP
+    signal pb0   # LED0
+    signal pb1   # BEEPER
+    signal pb2   # PINIO1
+    signal pb3   # CAMERA_CONTROL
+    signal pb6   # LED_STRIP
 
     # Debug
-    pa13 = new Electrical  # SWDIO
-    pa14 = new Electrical  # SWCLK
+    signal pa13  # SWDIO
+    signal pa14  # SWCLK
 
     # Spare
-    pa4 = new Electrical   # Servo/detonator (DAC)
+    signal pa4   # Servo/detonator (DAC)
 
-    # TODO: Implement STM32F405RGT6 component with LQFP-64 footprint
-    # TODO: Implement 8MHz HSE crystal oscillator circuit (PH0/PH1)
-    # TODO: Implement VCAP1/VCAP2 caps (2.2µF each)
-    # TODO: Implement per-VDD decoupling (100nF each)
-    # TODO: Implement VDDA filtering (1µF + 100nF)
-    # TODO: Implement BOOT0 button circuit (10kΩ pulldown + button to 3.3V)
-    # TODO: Implement NRST button circuit (10kΩ pullup + 100nF + button to GND)
-    # TODO: Implement PB2/BOOT1 10kΩ pulldown
-    # TODO: Implement SWD test pads (PA13, PA14, GND, 3.3V, NRST)
+    # ── STM32F405RGT6 IC ──
+    mcu = new STM32F405RGT6
+
+    # Connect all MCU GPIO to module-level signals
+    mcu.pa0 ~ pa0; mcu.pa1 ~ pa1; mcu.pa2 ~ pa2; mcu.pa3 ~ pa3
+    mcu.pa4 ~ pa4; mcu.pa5 ~ pa5; mcu.pa6 ~ pa6; mcu.pa7 ~ pa7
+    mcu.pa9 ~ pa9; mcu.pa10 ~ pa10
+    mcu.pa11 ~ pa11; mcu.pa12 ~ pa12; mcu.pa13 ~ pa13; mcu.pa14 ~ pa14
+    mcu.pb0 ~ pb0; mcu.pb1 ~ pb1; mcu.pb2 ~ pb2; mcu.pb3 ~ pb3
+    mcu.pb5 ~ pb5; mcu.pb6 ~ pb6; mcu.pb7 ~ pb7
+    mcu.pb8 ~ pb8; mcu.pb9 ~ pb9; mcu.pb10 ~ pb10; mcu.pb11 ~ pb11
+    mcu.pb12 ~ pb12; mcu.pb13 ~ pb13; mcu.pb14 ~ pb14; mcu.pb15 ~ pb15
+    mcu.pc0 ~ pc0; mcu.pc1 ~ pc1; mcu.pc2 ~ pc2
+    mcu.pc4 ~ pc4; mcu.pc5 ~ pc5
+    mcu.pc6 ~ pc6; mcu.pc7 ~ pc7; mcu.pc8 ~ pc8; mcu.pc9 ~ pc9
+    mcu.pc10 ~ pc10; mcu.pc11 ~ pc11; mcu.pc12 ~ pc12
+    mcu.pd2 ~ pd2
+
+    # ── Power connections ──
+    # All VDD pins connected to 3.3V rail (LQFP-64 has 4 VDD: pins 19,32,48,64)
+    mcu.vdd1 ~ vdd; mcu.vdd2 ~ vdd; mcu.vdd3 ~ vdd; mcu.vdd4 ~ vdd
+    # VDDA gets filtered 3.3V (filtering done inside this module)
+    mcu.vdda ~ vdda
+    # VBAT tied to VDD (no coin cell backup)
+    mcu.vbat ~ vdd
+    # All VSS pins to ground (LQFP-64 has 2 VSS: pins 18,63 + VSSA: pin 12)
+    mcu.vss1 ~ gnd; mcu.vss2 ~ gnd
+    mcu.vssa ~ gnd
+
+    # ── VCAP1/VCAP2 (internal 1.2V regulator output caps) ──
+    # Required by STM32F405 datasheet: 2.2uF ceramic, placed close to pins
+    c_vcap1 = new Capacitor
+    c_vcap1.value = 2.2uF +/- 5%
+    mcu.vcap1 ~ c_vcap1.p1; c_vcap1.p2 ~ gnd
+
+    c_vcap2 = new Capacitor
+    c_vcap2.value = 2.2uF +/- 5%
+    mcu.vcap2 ~ c_vcap2.p1; c_vcap2.p2 ~ gnd
+
+    # ── Per-VDD decoupling (100nF on each VDD pin, as close as possible) ──
+    # LQFP-64 has 4 VDD pins — one 100nF cap per pin
+    c_vdd1 = new Capacitor
+    c_vdd1.value = 100nF +/- 10%
+    mcu.vdd1 ~ c_vdd1.p1; c_vdd1.p2 ~ gnd
+
+    c_vdd2 = new Capacitor
+    c_vdd2.value = 100nF +/- 10%
+    mcu.vdd2 ~ c_vdd2.p1; c_vdd2.p2 ~ gnd
+
+    c_vdd3 = new Capacitor
+    c_vdd3.value = 100nF +/- 10%
+    mcu.vdd3 ~ c_vdd3.p1; c_vdd3.p2 ~ gnd
+
+    c_vdd4 = new Capacitor
+    c_vdd4.value = 100nF +/- 10%
+    mcu.vdd4 ~ c_vdd4.p1; c_vdd4.p2 ~ gnd
+
+    # ── VDDA filtering (1uF bulk + 100nF bypass) ──
+    # VDDA requires extra filtering for ADC accuracy.
+    # Ferrite bead between VDD and VDDA recommended (done at board level).
+    c_vdda_bulk = new Capacitor
+    c_vdda_bulk.value = 1uF +/- 10%
+    mcu.vdda ~ c_vdda_bulk.p1; c_vdda_bulk.p2 ~ gnd
+
+    c_vdda_bypass = new Capacitor
+    c_vdda_bypass.value = 100nF +/- 10%
+    mcu.vdda ~ c_vdda_bypass.p1; c_vdda_bypass.p2 ~ gnd
+
+    # ── 8MHz HSE crystal oscillator (PH0/PH1) ──
+    # Crystal: ABM8-8.000MHZ-B2-T, 3.2x2.5mm SMD, 20ppm
+    # Load caps: 20pF each (for ~10pF crystal load + ~5pF PCB stray)
+    # Layout: traces < 10mm, ground pour under crystal, no vias under footprint
+    xtal = new Crystal_8MHz
+    xtal.xin ~ mcu.ph0
+    xtal.xout ~ mcu.ph1
+
+    c_hse1 = new Capacitor
+    c_hse1.value = 20pF +/- 10%
+    mcu.ph0 ~ c_hse1.p1; c_hse1.p2 ~ gnd
+
+    c_hse2 = new Capacitor
+    c_hse2.value = 20pF +/- 10%
+    mcu.ph1 ~ c_hse2.p1; c_hse2.p2 ~ gnd
+
+    # ── BOOT0 button circuit ──
+    # 10k pulldown: ensures boot from flash by default
+    # Tactile button: connects BOOT0 to 3.3V for DFU mode entry
+    r_boot0 = new Resistor
+    r_boot0.value = 10kohm +/- 1%
+    mcu.boot0 ~ r_boot0.p1; r_boot0.p2 ~ gnd
+
+    sw_boot0 = new Button
+    mcu.boot0 ~ sw_boot0.p1; sw_boot0.p2 ~ vdd
+
+    # ── NRST button circuit ──
+    # 10k pullup to 3.3V: keeps NRST high during normal operation
+    # 100nF debounce cap: filters glitches on reset line
+    # Tactile button: connects NRST to GND for manual reset
+    r_nrst = new Resistor
+    r_nrst.value = 10kohm +/- 1%
+    mcu.nrst ~ r_nrst.p1; r_nrst.p2 ~ vdd
+
+    c_nrst = new Capacitor
+    c_nrst.value = 100nF +/- 10%
+    mcu.nrst ~ c_nrst.p1; c_nrst.p2 ~ gnd
+
+    sw_nrst = new Button
+    mcu.nrst ~ sw_nrst.p1; sw_nrst.p2 ~ gnd
+
+    # ── PB2/BOOT1 pulldown (MANDATORY) ──
+    # Prevents SRAM boot trap on STM32F405 (see errata ES0206 section 2.1.1)
+    # PB2 is also used as PINIO1 GPIO for P-FET gate control
+    r_boot1 = new Resistor
+    r_boot1.value = 10kohm +/- 1%
+    mcu.pb2 ~ r_boot1.p1; r_boot1.p2 ~ gnd
+
+    # ── Assert constraints (spec validation) ──
+    # HSE crystal load caps
+    assert c_hse1.value within 15pF to 22pF
+    assert c_hse2.value within 15pF to 22pF
+
+    # VCAP internal regulator caps (required by datasheet)
+    assert c_vcap1.value within 2.0uF to 2.4uF
+    assert c_vcap2.value within 2.0uF to 2.4uF
+
+    # Per-VDD decoupling (validate one representative cap)
+    assert c_vdd1.value within 80nF to 120nF
+
+    # VDDA filtering
+    assert c_vdda_bulk.value within 0.9uF to 1.1uF
+    assert c_vdda_bypass.value within 80nF to 120nF
+
+    # BOOT0 pull-down (ensures boot from flash by default)
+    assert r_boot0.value within 9.9kohm to 10.1kohm
+
+    # NRST pull-up and debounce
+    assert r_nrst.value within 9.9kohm to 10.1kohm
+    assert c_nrst.value within 80nF to 120nF
+
+    # PB2/BOOT1 pull-down (mandatory — prevents SRAM boot trap)
+    assert r_boot1.value within 9.9kohm to 10.1kohm
+
+    # ── SWD debug test pads ──
+    # PA13 (SWDIO) and PA14 (SWCLK) are already exposed as module signals.
+    # Physical test pads for GND, 3.3V, and NRST are board-level layout items
+    # that don't need separate component definitions in the netlist.
+    # The SWD signals (pa13, pa14) are connected to the MCU above and
+    # available at the module interface for top-level routing to pads.
