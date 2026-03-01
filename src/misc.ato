@@ -144,6 +144,24 @@ module CameraControl:
     gpio ~ pad
 
 # ────────────────────────────────────────────────
+# PA4 Breakout (servo/detonator solder pad)
+# PA4 is DAC_OUT1 (12-bit analog output) and TIM2_CH1 (PWM capable).
+# Betaflight uses this for servo output or pyro/detonator trigger.
+# Direct GPIO breakout to solder pad — no passive components needed.
+# The DAC or timer peripheral is configured in firmware; hardware is
+# just a direct connection from the MCU pin to an exposed pad.
+# ────────────────────────────────────────────────
+module PA4Breakout:
+    signal gpio  # PA4, MCU-side (DAC_OUT1 / TIM2_CH1 / GPIO)
+    signal pad   # Solder pad output for servo/detonator wire
+    signal gnd
+
+    # Direct passthrough: GPIO → solder pad
+    # No series resistor or protection needed — servo signal is low-frequency
+    # PWM (~50Hz) or DC analog, and the pad-to-device cable is short.
+    gpio ~ pad
+
+# ────────────────────────────────────────────────
 # SBUS Hardware Inverter (STM32F405-specific)
 # STM32F405 lacks UART hardware inversion capability.
 # SBUS protocol uses inverted UART (idle-low), so an external

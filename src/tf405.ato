@@ -21,7 +21,7 @@ from "flash.ato" import Flash_W25Q128
 from "baro.ato" import Baro_BMP390
 from "usb.ato" import USB_C_Interface
 from "connectors.ato" import ESCConnector, RXConnector, GPSConnector, SpareConnector, CameraConnector, VTXConnector
-from "misc.ato" import StatusLED, Beeper, LEDStrip, CameraControl, SBUSInverter
+from "misc.ato" import StatusLED, Beeper, LEDStrip, CameraControl, PA4Breakout, SBUSInverter
 
 module TF405:
     # ── Power ──
@@ -141,6 +141,11 @@ module TF405:
     cam_ctrl = new CameraControl
     cam_ctrl.gpio ~ mcu.pb3
     cam_ctrl.gnd ~ power.gnd
+
+    # PA4 breakout: servo/detonator solder pad (DAC_OUT1 / TIM2_CH1)
+    pa4_out = new PA4Breakout
+    pa4_out.gpio ~ mcu.pa4
+    pa4_out.gnd ~ power.gnd
 
     # ── SBUS Inverter (TASK-012) ──
     # 2N7002 N-FET hardware inverter for SBUS protocol support

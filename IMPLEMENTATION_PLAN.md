@@ -1,10 +1,10 @@
 # Flight Controller Implementation Plan
 
-**Last Updated**: 2026-03-01 — TASK-016 (Camera Control Output) completed
+**Last Updated**: 2026-03-01 — TASK-017 (PA4 Breakout) completed
 
-**Status**: TASK-001 through TASK-005, TASK-007 through TASK-016 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), OSD AT7456E (10 components, 2 asserts), ESC/Motor wiring (signal routing only), Video path (signal routing only), UART connectors (all 3 wired + I2C1 GPS), SBUS inverter (3 components, 2 asserts), Status LED (2 components, 1 assert), Beeper (3 components, 1 assert), LED strip (1 component, 1 assert), and Camera control (direct passthrough, no components) fully implemented with clean `ato build`. 35 total assertions passing. Remaining tasks: PA4 breakout (TASK-017).
+**Status**: TASK-001 through TASK-018 complete (all circuit implementation tasks). MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), OSD AT7456E (10 components, 2 asserts), ESC/Motor wiring (signal routing only), Video path (signal routing only), UART connectors (all 3 wired + I2C1 GPS), SBUS inverter (3 components, 2 asserts), Status LED (2 components, 1 assert), Beeper (3 components, 1 assert), LED strip (1 component, 1 assert), Camera control (direct passthrough), and PA4 breakout (direct passthrough) fully implemented with clean `ato build`. 35 total assertions passing. All circuit tasks complete — remaining items are documentation/spec tasks (TASK-011A, TASK-019, TASK-020, TASK-021, TASK-022).
 
-**Project State**: All major subsystems complete — MCU, power, USB, IMU, baro, flash, OSD, SBUS inverter, status LED, beeper, LED strip implemented. All connectors fully wired (ESC, RX, GPS, Spare, Camera, VTX). 84 components total in BOM (41 unique). Build pipeline operational. I2C1 bus fully wired with pullups + GPS connector. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI2=AT7456E, SPI3=W25Q128). All 5 usable UARTs wired (UART1=RX/SBUS, UART2=GPS, UART3=Spare, UART4=ESC telem, UART5=SmartAudio). All ground connections added for connectors and misc modules. Custom component patterns well-established for remaining tasks.
+**Project State**: ALL circuit implementation tasks complete — MCU, power, USB, IMU, baro, flash, OSD, SBUS inverter, status LED, beeper, LED strip, camera control, PA4 breakout implemented. All connectors fully wired (ESC, RX, GPS, Spare, Camera, VTX). 84 components total in BOM (41 unique). Build pipeline operational. I2C1 bus fully wired with pullups + GPS connector. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI2=AT7456E, SPI3=W25Q128). All 5 usable UARTs wired (UART1=RX/SBUS, UART2=GPS, UART3=Spare, UART4=ESC telem, UART5=SmartAudio). All ground connections added for connectors and misc modules. All GPIO breakouts complete (PA4 servo/detonator pad).
 
 **Key Findings**:
 - 0 TODO comments remain (down from 43 — all TODOs resolved including camera control)
@@ -636,24 +636,26 @@
 
 ---
 
-### TASK-017: Implement PA4 Servo/Detonator Pad
+### TASK-017: Implement PA4 Servo/Detonator Pad ✅ COMPLETE
 **Spec**: `specs/video-vtx-misc.md` (line 7)
-**File**: `src/mcu.ato` (line 73), needs breakout
-**Current State**: Pin defined, no connector or breakout
+**File**: `src/misc.ato`, `src/tf405.ato`
+**Completed**: 2026-03-01
 **Priority**: LOW - Optional servo/pyro channel
 **Dependencies**: None
 
-**Required Implementation**:
-- Solder pad or small connector for PA4 breakout
-- Optional pull-down or protection diode depending on use case
+**Implementation Summary**:
+- **PA4Breakout module**: PA4 GPIO → solder pad direct passthrough
+  - `gpio` signal (MCU-side, PA4) connected directly to `pad` signal (solder pad output)
+  - No passive components needed — servo signal is low-frequency PWM (~50Hz) or DC analog
+  - PA4 is DAC_OUT1 (12-bit analog output) and TIM2_CH1 (PWM capable)
+  - Betaflight uses this for servo output or pyro/detonator trigger
+- **Top-level wiring**: `pa4_out.gpio ~ mcu.pa4`, `pa4_out.gnd ~ power.gnd`
+- 0 new components (pure signal routing), no assert constraints per spec
+- `ato build` passes cleanly, 35 total assertions still passing
 
-**Acceptance Criteria**:
-- Test pad or connector component defined
-- Wired in tf405.ato
-- `ato build` compiles without errors
-
-**Notes**:
-- PA4 is DAC-capable (TIM2_CH1 or DAC_OUT1)
+**Discoveries**:
+- Follows exact same pattern as CameraControl — direct GPIO-to-pad breakout
+- Ground connection included for reference plane continuity on solder pad
 
 ---
 
@@ -867,7 +869,7 @@ All ground connections now present in tf405.ato:
 - SBUS Inverter: **100%** (TASK-012 complete — 3 components, 2 asserts, ato build passes)
 - I2C Bus: **100%** (TASK-006 complete — pullups in baro, GPS I2C routing in TASK-011)
 - Ground Connections: **100%** (TASK-018 complete — all 16 modules grounded)
-- Misc: **95%** (LED + beeper + LED strip + camera control complete; PA4 breakout remaining)
+- Misc: **100%** (LED + beeper + LED strip + camera control + PA4 breakout all complete)
 
 **Component Package Availability**:
 - Available on packages.atopile.io: ~10-15% (USB connectors, possibly some passives)
@@ -888,7 +890,7 @@ All ground connections now present in tf405.ato:
 ## Critical Blockers
 
 1. ~~**Missing ground connections**~~ ✅ RESOLVED (TASK-018 complete — all 16 modules grounded)
-2. ~~**Misc peripheral stubs remain**~~ ✅ RESOLVED (TASK-016 camera control complete; only TASK-017 PA4 breakout remains)
+2. ~~**Misc peripheral stubs remain**~~ ✅ RESOLVED (all misc peripherals complete including TASK-017 PA4 breakout)
 3. **No PCB stackup defined** - Blocks layout for impedance-critical signals (TASK-020)
 4. ~~**GPS connector I2C routing missing**~~ ✅ RESOLVED (TASK-006 complete via TASK-011)
 5. ~~**Connector wiring incomplete**~~ ✅ RESOLVED (all connectors now fully wired)
