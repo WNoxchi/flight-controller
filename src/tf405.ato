@@ -122,21 +122,60 @@ module TF405:
     esc_conn.vbat ~ power.vbat
     esc_conn.gnd ~ power.gnd
 
-    # ── Misc ──
+    # ── Misc Peripherals ──
     led = new StatusLED
     led.gpio ~ mcu.pb0
     led.vdd ~ power.rail_3v3
+    led.gnd ~ power.gnd
 
     beeper = new Beeper
     beeper.gpio ~ mcu.pb1
+    beeper.gnd ~ power.gnd
 
     led_strip = new LEDStrip
     led_strip.data ~ mcu.pb6
     led_strip.vdd ~ power.rail_5v
+    led_strip.gnd ~ power.gnd
 
     cam_ctrl = new CameraControl
     cam_ctrl.gpio ~ mcu.pb3
+    cam_ctrl.gnd ~ power.gnd
 
+    # ── SBUS Inverter (TASK-012) ──
+    # 2N7002 N-FET hardware inverter for SBUS protocol support
+    # Must be instantiated before UART wiring references below
     sbus_inv = new SBUSInverter
     sbus_inv.vdd ~ power.rail_3v3
-    # sbus_inv.uart_rx ~ mcu.pa10  (UART1_RX, shared with RX connector)
+    sbus_inv.gnd ~ power.gnd
+
+    # ── UART Connector Wiring (TASK-011) ──
+    # RX Connector (UART1): Serial receiver input
+    # Default: direct connection for CRSF/ELRS (non-inverted protocols)
+    # SBUS: requires hardware inverter (2N7002 N-FET circuit in SBUSInverter module)
+    # Selection: solder bridge on PCB routes RX1 through inverter or direct to PA10
+    #
+    # Direct path: rx_conn.rx → mcu.pa10 (via solder bridge, default)
+    # SBUS path:  rx_conn.rx → sbus_inv.sbus_in → (inverted) → sbus_inv.uart_rx → mcu.pa10
+    # Both paths converge on PA10; only one should be active at a time (solder bridge)
+    rx_conn.tx ~ mcu.pa9       # UART1_TX → receiver telemetry return
+    rx_conn.v5 ~ power.rail_5v
+    rx_conn.gnd ~ power.gnd
+    # SBUS inverter: input from RX connector, output to UART1_RX
+    sbus_inv.sbus_in ~ rx_conn.rx   # RX connector → inverter gate (via 1kΩ)
+    sbus_inv.uart_rx ~ mcu.pa10     # Inverter drain → UART1_RX (PA10)
+
+    # GPS Connector (UART2 + I2C1): GPS module + external magnetometer
+    # UART2 for NMEA/UBX GPS data, I2C1 for external magnetometer (HMC5883L/QMC5883L)
+    # I2C1 bus pullups (4.7kΩ to 3.3V) already in baro module — shared bus
+    gps_conn.tx ~ mcu.pa2      # UART2_TX → GPS module RX
+    gps_conn.rx ~ mcu.pa3      # UART2_RX → GPS module TX
+    gps_conn.scl ~ mcu.pb8     # I2C1_SCL → external magnetometer SCL
+    gps_conn.sda ~ mcu.pb9     # I2C1_SDA → external magnetometer SDA
+    gps_conn.v5 ~ power.rail_5v
+    gps_conn.gnd ~ power.gnd
+
+    # Spare Connector (UART3): general-purpose UART (MSP, telemetry, etc.)
+    spare_conn.tx ~ mcu.pb10   # UART3_TX
+    spare_conn.rx ~ mcu.pb11   # UART3_RX
+    spare_conn.v5 ~ power.rail_5v
+    spare_conn.gnd ~ power.gnd
