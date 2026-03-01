@@ -36,3 +36,5 @@ After implementing, run `ato build` to verify the design compiles. This is the o
 - Check https://packages.atopile.io with subagents before defining components from scratch
 - You can reference atopile documentation with subagents at https://docs.atopile.io/atopile/
 - Connect components (wire them up)
+- use the 'flight-controller' conda environment for python
+
