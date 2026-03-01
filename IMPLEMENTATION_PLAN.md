@@ -1,20 +1,21 @@
 # Flight Controller Implementation Plan
 
-**Last Updated**: 2026-03-01 — TASK-002 (Power System) completed
+**Last Updated**: 2026-03-01 — TASK-003 (USB-C Interface) completed
 
-**Status**: TASK-001 and TASK-002 complete. MCU core (18 components, 11 asserts) and power system (20 components, 5 asserts) fully implemented with clean `ato build`. 16 total assertions passing. Remaining tasks: USB-C, sensors, peripherals, wiring, constraints.
+**Status**: TASK-001, TASK-002, and TASK-003 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), and USB-C interface (10 components, 5 asserts) fully implemented with clean `ato build`. 21 total assertions passing. Remaining tasks: sensors, peripherals, wiring, constraints.
 
-**Project State**: Foundation complete — MCU and power modules implemented. 45 components total in BOM. Build pipeline operational. Custom component patterns well-established for remaining ICs.
+**Project State**: Foundation + USB complete — MCU, power, and USB modules implemented. 55 components total in BOM (29 unique). Build pipeline operational. Custom component patterns well-established for remaining ICs.
 
 **Key Findings**:
-- ~27 TODO comments remain (down from 43 — MCU and power TODOs resolved)
-- 16/44 assert statements implemented (MCU + Power modules)
+- ~20 TODO comments remain (down from 43 — MCU, power, and USB TODOs resolved)
+- 21/44 assert statements implemented (MCU + Power + USB modules)
 - 3 voltage-level assertions (rail_5v, rail_3v3, v_adc_vbat) cannot be verified in atopile v0.2.69 — solver only handles passive component values, not computed voltages
-- All ground connections still missing (systematic issue across 16+ modules)
+- USB ground now connected (usb.gnd ~ power.gnd); remaining 15 modules still missing ground
 - Most connector wiring incomplete
 - No atopile packages available for custom ICs (BMI270, BMP390, W25Q128, AT7456E)
 - SpareConnector incomplete: missing duplicate power pins per spec (should be 6-pin, only 4 signals defined)
 - Power module exposes adc_vbat, adc_curr, pinio1, vbat_sw, usb_vbus, curr_in signals for top-level wiring
+- atopile v0.2.69 supports alphanumeric pin names (`pin A4`) — useful for USB-C and other non-numeric pad names
 
 ---
 
@@ -111,38 +112,53 @@
 
 ---
 
-### TASK-003: Implement USB-C Interface
+### TASK-003: Implement USB-C Interface ✅ COMPLETE
 **Spec**: `specs/usb-c.md`
-**File**: `src/usb.ato` (lines 10-16)
-**Current State**: Complete stub - only pin interfaces defined, wiring to MCU complete (PA11/PA12)
+**File**: `src/usb.ato`
+**Completed**: 2026-03-01
 **Priority**: HIGH - Needed for programming and power OR circuit
 **Dependencies**: TASK-002 (5V rail for Schottky diode)
 
-**Required Implementation**:
-- USB-C connector: GCT USB4085-GF-A (16-pin mid-mount) (check for atopile USB-C packages)
-- CC pull-down resistors: 2x 5.1kΩ to GND (UFP/sink ID)
-- ESD protection: USBLC6-2SC6 on D+/D-
-- Series resistors: 2x 22Ω on D+/D-
-- Schottky diode: SS34 from VBUS to 5V rail (power OR with BEC)
-- VBUS decoupling: 4.7µF after Schottky
-- Shield grounding: 1MΩ || 4.7nF from shield to GND
+**Implementation Summary**:
+- **GCT USB4085-GF-A**: custom 16-pin component with alphanumeric pad names (A1-A12, B1-B12, S1)
+  - 4 VBUS pads (A4, A9, B4, B9) tied to internal vbus_raw node
+  - 4 GND pads (A1, A12, B1, B12) tied to system ground
+  - D1+/D2+ shorted together, D1-/D2- shorted together (USB-C reversibility)
+  - CC1 (A5) and CC2 (B5) exposed for pulldown resistors
+  - SBU1/SBU2 left floating (unused in USB 2.0 device mode)
+  - Shield (S1) grounded via RC network
+- **CC1/CC2 pulldowns**: 2x 5.1kΩ +/- 1% to GND (UFP/sink identification)
+- **USBLC6-2SC6 ESD protection**: SOT-23-6, I/O1 on D-, I/O2 on D+, VBUS on pin 4
+  - Dual-pin per line (pins 1&2 and 5&6 internally shorted) for low inductance
+- **Series resistors**: 2x 22Ω +/- 5% on D+/D- (USB 2.0 impedance matching)
+- **VBUS decoupling**: 4.7µF +/- 10% on connector-side VBUS (before power OR Schottky)
+- **Shield grounding**: 1MΩ || 4.7nF from shell to GND (DC bleeder + AC coupling)
+- 10 components total, 5 passing assert constraints
+- `ato build` passes cleanly, all LCSC parts auto-resolved
 
-**Acceptance Criteria**:
-- All components instantiated
-- All 7 assert statements from spec implemented:
-  - `r_cc1.value within 4.9kohm to 5.3kohm`
-  - `r_cc2.value within 4.9kohm to 5.3kohm`
-  - `r_dp.value within 20ohm to 24ohm`
-  - `r_dm.value within 20ohm to 24ohm`
-  - `c_vbus.value within 4.0uF to 5.5uF`
-- USB connected to MCU PA11/PA12 (already done in tf405.ato line 72-73)
-- Power OR circuit functional
-- `ato build` compiles without errors
+**Assertions Implemented (5/5 spec constraints)**:
+- ✅ `r_cc1.value within 4.9kohm to 5.3kohm`
+- ✅ `r_cc2.value within 4.9kohm to 5.3kohm`
+- ✅ `r_dp.value within 20ohm to 24ohm`
+- ✅ `r_dm.value within 20ohm to 24ohm`
+- ✅ `c_vbus.value within 4.0uF to 5.5uF`
+
+**Top-level wiring added/updated in tf405.ato**:
+- `usb.dm ~ mcu.pa11` (USB D- to MCU, already existed)
+- `usb.dp ~ mcu.pa12` (USB D+ to MCU, already existed)
+- `usb.gnd ~ power.gnd` (new — USB ground)
+- `usb.vbus ~ power.usb_vbus` (new — USB VBUS to power OR circuit)
+- Removed `usb.rail_5v ~ power.rail_5v` (unused — USB doesn't need direct 5V)
+
+**Discoveries**:
+- atopile v0.2.69 supports alphanumeric pin names: `signal x ~ pin A4` works for USB-C pad names
+- USBLC6-2SC6 pins 1&2 are internally connected (I/O1), pins 5&6 are internally connected (I/O2) — both pads must be wired to the same net for correct footprint mapping
+- Power OR Schottky + bulk cap already exists in power.ato (Section 7) — USB module only needs connector-side VBUS decoupling
+- GCT USB4085-GF-A KiCad footprint name: `USB_C_Receptacle_GCT_USB4085`
 
 **Notes**:
-- NDAA compliance: GCT (USA) or JAE (Japan) connectors preferred
-- 90Ω differential impedance requires PCB stackup definition (not yet specified)
-- USB-C connectors may be available in atopile packages - check packages.atopile.io
+- NDAA compliance: GCT (UK company, clean), USBLC6-2SC6 (ST, Franco-Italian, clean)
+- 90Ω differential impedance requires PCB stackup definition (TASK-020)
 
 ---
 
@@ -796,7 +812,7 @@ Add ground connections in tf405.ato for all modules:
 - Barometer: ~5% (wiring done, component + bus pullups missing)
 - Flash: ~40% (wiring done, component missing)
 - OSD: ~30% (wiring done, component + video path missing)
-- USB: ~40% (partial wiring, all components missing)
+- USB: **100%** (TASK-003 complete — 10 components, 5 asserts, ato build passes)
 - Motor/ESC: ~20% (connector defined, not wired)
 - UART/RX: ~20% (connectors defined, not wired)
 - Video/Misc: ~30% (partial wiring, circuits missing)

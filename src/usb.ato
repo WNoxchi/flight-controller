@@ -1,16 +1,228 @@
 # USB-C Interface — See specs/usb-c.md
+#
+# Design decisions:
+# - GCT USB4085-GF-A: 16-pin mid-mount USB-C receptacle (USB 2.0 only)
+#   Pad names: A1/A12/B1/B12=GND, A4/A9/B4/B9=VBUS, A5=CC1, B5=CC2,
+#   A6/B6=D+, A7/B7=D-, A8=SBU1, B8=SBU2, S1=shield
+#   For USB 2.0 device mode, D1+/D1- and D2+/D2- are shorted together
+#   (reversible connector, same data on both orientations)
+# - CC1/CC2 5.1kohm pulldowns: required by USB-C spec for UFP/sink identification.
+#   Without these, a USB-C host will not provide VBUS power.
+# - USBLC6-2SC6: dual-line ESD TVS in SOT-23-6, protects D+/D- against ESD.
+#   Very low capacitance (2.5pF) preserves USB 2.0 signal integrity at 480Mbps.
+#   Pins: 1,2=I/O1 (D-), 3=GND, 4=VBUS, 5,6=I/O2 (D+)
+# - 22ohm series resistors on D+/D-: USB 2.0 impedance matching per spec.
+#   STM32F405 has internal 1.5kohm D+ pullup — no external pullup needed.
+# - VBUS decoupling: 4.7uF ceramic on raw VBUS (connector side) for
+#   input filtering before the power OR Schottky diode in power.ato.
+# - Shield grounding: 1Mohm || 4.7nF from connector shell to GND.
+#   The RC provides a DC return path while AC-coupling the shield,
+#   preventing ground loops while still shunting high-frequency EMI.
 
+from "mcu.ato" import Capacitor, Resistor
+
+# ────────────────────────────────────────────────
+# GCT USB4085-GF-A USB-C Receptacle (16-pin, mid-mount SMD)
+# USB 2.0 only — no SuperSpeed pins (A2/A3/A10/A11/B2/B3/B10/B11 omitted)
+# Pad names per GCT datasheet and KiCad footprint library
+# ────────────────────────────────────────────────
+component USB4085:
+    footprint = "USB_C_Receptacle_GCT_USB4085"
+    mpn = "USB4085-GF-A"
+    designator_prefix = "J"
+
+    # Ground pads (4 total)
+    signal gnd_a1 ~ pin A1
+    signal gnd_a12 ~ pin A12
+    signal gnd_b1 ~ pin B1
+    signal gnd_b12 ~ pin B12
+
+    # VBUS pads (4 total)
+    signal vbus_a4 ~ pin A4
+    signal vbus_a9 ~ pin A9
+    signal vbus_b4 ~ pin B4
+    signal vbus_b9 ~ pin B9
+
+    # Configuration channel
+    signal cc1 ~ pin A5
+    signal cc2 ~ pin B5
+
+    # USB 2.0 data — both orientations shorted for reversibility
+    signal dp1 ~ pin A6    # D1+
+    signal dm1 ~ pin A7    # D1-
+    signal dp2 ~ pin B6    # D2+
+    signal dm2 ~ pin B7    # D2-
+
+    # Sideband use (unused in USB 2.0 device mode)
+    signal sbu1 ~ pin A8
+    signal sbu2 ~ pin B8
+
+    # Shield/shell (4 mounting lugs, all same net)
+    signal shield ~ pin S1
+
+# ────────────────────────────────────────────────
+# USBLC6-2SC6 ESD Protection — SOT-23-6
+# Dual-line TVS for USB D+/D- protection
+# Pin mapping from ST datasheet:
+#   Pins 1,2 = I/O1 (first protected line, connect to D-)
+#   Pin 3 = GND
+#   Pin 4 = VBUS (clamping reference)
+#   Pins 5,6 = I/O2 (second protected line, connect to D+)
+# Note: pins 1&2 are internally connected, pins 5&6 are internally connected.
+# Dual-pad per line reduces inductance for better HF ESD clamping.
+# ────────────────────────────────────────────────
+component USBLC6_2SC6:
+    footprint = "SOT-23-6"
+    mpn = "USBLC6-2SC6"
+    designator_prefix = "U"
+    signal io1_a ~ pin 1   # I/O1 line A (D-)
+    signal io1_b ~ pin 2   # I/O1 line B (D-) — internally shorted to pin 1
+    signal gnd ~ pin 3     # Ground reference
+    signal vbus ~ pin 4    # VBUS clamping rail
+    signal io2_a ~ pin 5   # I/O2 line A (D+) — internally shorted to pin 6
+    signal io2_b ~ pin 6   # I/O2 line B (D+)
+
+# ────────────────────────────────────────────────
+# USB_C_Interface module: complete USB-C peripheral
+# Signals exposed:
+#   dm, dp — USB data to MCU (PA11, PA12)
+#   vbus — raw VBUS output to power OR circuit in power.ato
+#   gnd — system ground
+#   rail_5v — (unused internally, kept for interface compatibility)
+# ────────────────────────────────────────────────
 module USB_C_Interface:
-    signal rail_5v
     signal gnd
-    signal dm
-    signal dp
-    signal vbus
+    signal dm        # USB D- to MCU PA11
+    signal dp        # USB D+ to MCU PA12
+    signal vbus      # Raw VBUS output → power.usb_vbus for power OR
 
-    # TODO: Implement USB-C connector (GCT USB4085-GF-A)
-    # TODO: 2x 5.1k on CC1/CC2 to GND
-    # TODO: ESD protection (USBLC6-2SC6) on D+/D-
-    # TODO: 22 ohm series resistors on D+/D-
-    # TODO: Schottky diode (SS34) from VBUS to 5V rail
-    # TODO: 4.7uF on VBUS after Schottky
-    # TODO: Shield to GND via 1M || 4.7nF
+    # ═══════════════════════════════════════════════
+    # SECTION 1: USB-C Connector (GCT USB4085-GF-A)
+    # 16-pin mid-mount SMD, USB 2.0 only
+    # ═══════════════════════════════════════════════
+
+    conn = new USB4085
+
+    # All GND pads tied to system ground
+    conn.gnd_a1 ~ gnd
+    conn.gnd_a12 ~ gnd
+    conn.gnd_b1 ~ gnd
+    conn.gnd_b12 ~ gnd
+
+    # All VBUS pads tied together to internal vbus_raw node
+    # (goes through decoupling cap, then out to power OR circuit)
+    signal vbus_raw
+    conn.vbus_a4 ~ vbus_raw
+    conn.vbus_a9 ~ vbus_raw
+    conn.vbus_b4 ~ vbus_raw
+    conn.vbus_b9 ~ vbus_raw
+
+    # USB 2.0 data: short D1 and D2 pairs together (reversible connector)
+    # Both orientations carry the same USB 2.0 signals
+    signal conn_dp
+    signal conn_dm
+    conn.dp1 ~ conn_dp
+    conn.dp2 ~ conn_dp
+    conn.dm1 ~ conn_dm
+    conn.dm2 ~ conn_dm
+
+    # SBU pins unused in USB 2.0 device mode — leave floating
+    # (no connection needed; they're for alternate modes like DisplayPort)
+
+    # ═══════════════════════════════════════════════
+    # SECTION 2: CC1/CC2 Pulldown Resistors (5.1kohm)
+    # USB-C spec requires 5.1kohm on CC1 and CC2 to GND
+    # for UFP (sink/device) identification. Without these,
+    # the host will not enumerate the device or provide VBUS.
+    # ═══════════════════════════════════════════════
+
+    r_cc1 = new Resistor
+    r_cc1.value = 5.1kohm +/- 1%
+    conn.cc1 ~ r_cc1.p1; r_cc1.p2 ~ gnd
+
+    r_cc2 = new Resistor
+    r_cc2.value = 5.1kohm +/- 1%
+    conn.cc2 ~ r_cc2.p1; r_cc2.p2 ~ gnd
+
+    # ═══════════════════════════════════════════════
+    # SECTION 3: ESD Protection (USBLC6-2SC6)
+    # Placed close to connector, before series resistors.
+    # Protects D+/D- against ESD (±17V clamp, 2.5pF).
+    # VBUS pin connected to raw VBUS for clamping reference.
+    # ═══════════════════════════════════════════════
+
+    esd = new USBLC6_2SC6
+    esd.gnd ~ gnd
+    esd.vbus ~ vbus_raw
+
+    # D- through ESD: connector → ESD I/O1 → series resistor → MCU
+    esd.io1_a ~ conn_dm
+    esd.io1_b ~ conn_dm
+
+    # D+ through ESD: connector → ESD I/O2 → series resistor → MCU
+    esd.io2_a ~ conn_dp
+    esd.io2_b ~ conn_dp
+
+    # ═══════════════════════════════════════════════
+    # SECTION 4: Series Resistors (22ohm on D+/D-)
+    # USB 2.0 spec recommends 22ohm series resistors for
+    # impedance matching on the D+/D- lines.
+    # Placed after ESD protection, before MCU pins.
+    # STM32F405 has internal 1.5kohm D+ pullup for device
+    # enumeration — no external pullup needed.
+    # ═══════════════════════════════════════════════
+
+    r_dp = new Resistor
+    r_dp.value = 22ohm +/- 5%
+    conn_dp ~ r_dp.p1; r_dp.p2 ~ dp
+
+    r_dm = new Resistor
+    r_dm.value = 22ohm +/- 5%
+    conn_dm ~ r_dm.p1; r_dm.p2 ~ dm
+
+    # ═══════════════════════════════════════════════
+    # SECTION 5: VBUS Decoupling (4.7uF)
+    # Ceramic cap on raw VBUS at connector side for input filtering.
+    # The power OR Schottky diode and additional bulk decoupling
+    # are in power.ato (Section 7: USB Power OR Circuit).
+    # ═══════════════════════════════════════════════
+
+    c_vbus = new Capacitor
+    c_vbus.value = 4.7uF +/- 10%
+    vbus_raw ~ c_vbus.p1; c_vbus.p2 ~ gnd
+
+    # Route raw VBUS out to power system for power OR circuit
+    vbus_raw ~ vbus
+
+    # ═══════════════════════════════════════════════
+    # SECTION 6: Shield Grounding (1Mohm || 4.7nF)
+    # Parallel RC from connector shield to GND.
+    # 1Mohm provides DC bleeder path (prevents floating shell).
+    # 4.7nF AC-couples high-frequency EMI to ground.
+    # This combination avoids ground loops (no direct short)
+    # while still providing effective EMI shielding.
+    # ═══════════════════════════════════════════════
+
+    r_shield = new Resistor
+    r_shield.value = 1Mohm +/- 5%
+    conn.shield ~ r_shield.p1; r_shield.p2 ~ gnd
+
+    c_shield = new Capacitor
+    c_shield.value = 4.7nF +/- 10%
+    conn.shield ~ c_shield.p1; c_shield.p2 ~ gnd
+
+    # ═══════════════════════════════════════════════
+    # Assert Constraints (from specs/usb-c.md)
+    # Validates component values meet USB-C requirements
+    # ═══════════════════════════════════════════════
+
+    # CC1/CC2 sink resistors (USB-C spec requires 5.1k for UFP identification)
+    assert r_cc1.value within 4.9kohm to 5.3kohm
+    assert r_cc2.value within 4.9kohm to 5.3kohm
+
+    # D+/D- series resistors (USB 2.0 impedance matching)
+    assert r_dp.value within 20ohm to 24ohm
+    assert r_dm.value within 20ohm to 24ohm
+
+    # VBUS decoupling after Schottky
+    assert c_vbus.value within 4.0uF to 5.5uF

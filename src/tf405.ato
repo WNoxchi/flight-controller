@@ -72,9 +72,11 @@ module TF405:
 
     # ── USB-C ──
     usb = new USB_C_Interface
-    usb.rail_5v ~ power.rail_5v
     usb.dm ~ mcu.pa11
     usb.dp ~ mcu.pa12
+    usb.gnd ~ power.gnd
+    # USB VBUS feeds into power OR circuit (SS34 Schottky → 5V rail in power.ato)
+    usb.vbus ~ power.usb_vbus
 
     # ── Connectors ──
     esc_conn = new ESCConnector
