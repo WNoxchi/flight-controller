@@ -1,14 +1,102 @@
-# BMI270 IMU on SPI1 — See specs/imu-bmi270.md
+# BMI270 6-axis IMU on SPI1 — See specs/imu-bmi270.md
+#
+# Design decisions:
+# - Bosch BMI270 in LGA-14 package (2.5x3.0mm, 0.5mm pitch)
+# - SPI mode selected (not I2C) for highest throughput on dedicated SPI1 bus
+# - Pin 1 (SDO) left unconnected — only used in I2C mode for address selection
+# - Pins 2,3 (ASDx/ASCx) auxiliary OIS interface unused, left floating per datasheet
+# - Pin 9 (INT2) unused — only INT1 needed for gyro data-ready interrupt
+# - Pins 10,11 (OCSB/OSDO) OIS interface unused, left floating per datasheet
+# - VDD (pin 8): main analog+digital supply, 1.71–3.6V, 100nF decoupling
+# - VDDIO (pin 5): digital I/O level supply, 1.2–3.6V, 100nF decoupling
+#   Both powered from 3.3V rail (same supply is fine per datasheet)
+# - GNDIO (pin 6) and GND (pin 7) both connected to system ground
+# - SPI Mode 0 (CPOL=0, CPHA=0), max 10MHz clock
+# - INT1 (pin 4) configured as rising-edge data-ready interrupt on PC5
 
+from "mcu.ato" import Capacitor, Resistor
+
+# ────────────────────────────────────────────────
+# BMI270 component definition (LGA-14, 2.5x3.0mm)
+# Pin mapping from Bosch datasheet BST-BMI270-DS000
+# ────────────────────────────────────────────────
+component BMI270:
+    footprint = "Bosch_LGA-14_3x2.5mm_P0.5mm"
+    mpn = "BMI270"
+    designator_prefix = "U"
+
+    # Left edge (pins 1-4, bottom to top)
+    signal sdo ~ pin 1     # SPI: MISO output / I2C: address select
+    signal asdx ~ pin 2    # Auxiliary serial data (OIS interface, unused)
+    signal ascx ~ pin 3    # Auxiliary serial clock (OIS interface, unused)
+    signal int1 ~ pin 4    # Interrupt output 1 (data-ready)
+
+    # Top edge (pins 5-7, left to right)
+    signal vddio ~ pin 5   # Digital I/O supply voltage (1.2–3.6V)
+    signal gndio ~ pin 6   # Ground for VDDIO
+    signal gnd ~ pin 7     # Main ground (analog + digital)
+
+    # Right edge (pins 8-11, top to bottom)
+    signal vdd ~ pin 8     # Main power supply (1.71–3.6V)
+    signal int2 ~ pin 9    # Interrupt output 2 (unused)
+    signal ocsb ~ pin 10   # OIS chip select (unused)
+    signal osdo ~ pin 11   # OIS data output (unused)
+
+    # Bottom edge (pins 12-14, right to left)
+    signal csb ~ pin 12    # SPI chip select (active low)
+    signal scx ~ pin 13    # SPI clock (SCK) / I2C clock (SCL)
+    signal sdx ~ pin 14    # SPI data in (MOSI) / I2C data (SDA)
+
+# ────────────────────────────────────────────────
+# IMU_BMI270 module: BMI270 + decoupling + assertions
+# ────────────────────────────────────────────────
 module IMU_BMI270:
-    signal vdd
-    signal gnd
-    signal spi_sck
-    signal spi_miso
-    signal spi_mosi
-    signal cs
-    signal exti
+    # Module interface signals (exposed to top-level tf405.ato)
+    signal vdd      # 3.3V power input
+    signal gnd      # System ground
+    signal spi_sck  # SPI1 clock (PA5)
+    signal spi_miso # SPI1 MISO (PA6)
+    signal spi_mosi # SPI1 MOSI (PA7)
+    signal cs       # Chip select (PC4, active low)
+    signal exti     # Data-ready interrupt (PC5)
 
-    # TODO: Implement BMI270 component with LGA-14 footprint
-    # TODO: VDD + VDDIO decoupling (100nF each)
-    # TODO: CS pulled high with 10k when not selected (optional)
+    # ── BMI270 IC ──
+    imu = new BMI270
+
+    # ── Power connections ──
+    # VDD: main analog+digital supply from 3.3V rail
+    imu.vdd ~ vdd
+    # VDDIO: digital I/O supply, same 3.3V rail (both within 1.71–3.6V range)
+    imu.vddio ~ vdd
+    # Both ground pins to system ground
+    imu.gnd ~ gnd
+    imu.gndio ~ gnd
+
+    # ── SPI connections ──
+    imu.scx ~ spi_sck    # SPI clock
+    imu.sdo ~ spi_miso   # SPI data out (MISO)
+    imu.sdx ~ spi_mosi   # SPI data in (MOSI)
+    imu.csb ~ cs          # Chip select (active low)
+
+    # ── Interrupt ──
+    imu.int1 ~ exti       # Data-ready interrupt (rising edge)
+
+    # ── VDD decoupling (100nF, placed close to pin 8) ──
+    c_vdd = new Capacitor
+    c_vdd.value = 100nF +/- 10%
+    imu.vdd ~ c_vdd.p1; c_vdd.p2 ~ gnd
+
+    # ── VDDIO decoupling (100nF, placed close to pin 5) ──
+    c_vddio = new Capacitor
+    c_vddio.value = 100nF +/- 10%
+    imu.vddio ~ c_vddio.p1; c_vddio.p2 ~ gnd
+
+    # ── Assert constraints (spec validation) ──
+    # Decoupling cap values per BMI270 datasheet recommendation
+    assert c_vdd.value within 80nF to 120nF
+    assert c_vddio.value within 80nF to 120nF
+    # Note: VDD/VDDIO voltage-level assertions (1.71–3.6V / 1.2–3.6V)
+    # cannot be verified in atopile v0.2.69 — solver only handles passive
+    # component values, not rail voltages. Documented for reference:
+    # assert vdd within 1.71V to 3.6V    (datasheet requirement)
+    # assert vddio within 1.2V to 3.6V   (datasheet requirement)

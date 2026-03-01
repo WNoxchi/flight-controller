@@ -46,6 +46,7 @@ module TF405:
     imu.spi_mosi ~ mcu.pa7
     imu.cs ~ mcu.pc4
     imu.exti ~ mcu.pc5
+    imu.gnd ~ power.gnd
 
     # ── OSD (SPI2) ──
     osd = new OSD_AT7456E

@@ -1,16 +1,16 @@
 # Flight Controller Implementation Plan
 
-**Last Updated**: 2026-03-01 — TASK-003 (USB-C Interface) completed
+**Last Updated**: 2026-03-01 — TASK-004 (IMU BMI270) completed
 
-**Status**: TASK-001, TASK-002, and TASK-003 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), and USB-C interface (10 components, 5 asserts) fully implemented with clean `ato build`. 21 total assertions passing. Remaining tasks: sensors, peripherals, wiring, constraints.
+**Status**: TASK-001, TASK-002, TASK-003, and TASK-004 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), and IMU BMI270 (3 components, 2 asserts) fully implemented with clean `ato build`. 23 total assertions passing. Remaining tasks: baro, flash, OSD, connectors, wiring, misc peripherals.
 
-**Project State**: Foundation + USB complete — MCU, power, and USB modules implemented. 55 components total in BOM (29 unique). Build pipeline operational. Custom component patterns well-established for remaining ICs.
+**Project State**: Foundation + USB + IMU complete — MCU, power, USB, and IMU modules implemented. 57 components total in BOM (30 unique). Build pipeline operational. Custom component patterns well-established for remaining ICs.
 
 **Key Findings**:
-- ~20 TODO comments remain (down from 43 — MCU, power, and USB TODOs resolved)
-- 21/44 assert statements implemented (MCU + Power + USB modules)
+- ~17 TODO comments remain (down from 43 — MCU, power, USB, and IMU TODOs resolved)
+- 23/44 assert statements implemented (MCU + Power + USB + IMU modules)
 - 3 voltage-level assertions (rail_5v, rail_3v3, v_adc_vbat) cannot be verified in atopile v0.2.69 — solver only handles passive component values, not computed voltages
-- USB ground now connected (usb.gnd ~ power.gnd); remaining 15 modules still missing ground
+- USB and IMU grounds now connected; remaining 14 modules still missing ground
 - Most connector wiring incomplete
 - No atopile packages available for custom ICs (BMI270, BMP390, W25Q128, AT7456E)
 - SpareConnector incomplete: missing duplicate power pins per spec (should be 6-pin, only 4 signals defined)
@@ -164,35 +164,38 @@
 
 ## Priority 2: Sensors & Critical Peripherals
 
-### TASK-004: Implement IMU BMI270
+### TASK-004: Implement IMU BMI270 ✅ COMPLETE
 **Spec**: `specs/imu-bmi270.md`
-**File**: `src/imu.ato` (lines 12-14)
-**Current State**: SPI1 connections complete (PA5/PA6/PA7/PC4/PC5), component missing, ground missing
+**File**: `src/imu.ato`
+**Completed**: 2026-03-01
 **Priority**: HIGH - Critical for flight control
 **Dependencies**: TASK-001 (SPI1), TASK-002 (3.3V rail)
 
-**Required Implementation**:
-- BMI270 component with LGA-14 footprint (custom - no atopile package available)
-- VDD decoupling: 100nF
-- VDDIO decoupling: 100nF (or tie to VDD if using 3.3V for both)
-- Optional: 10kΩ pull-up on CS line
-- Fix missing ground connection: `imu.gnd ~ power.gnd` in tf405.ato
+**Implementation Summary**:
+- **BMI270 LGA-14 custom component**: full 14-pin mapping from Bosch datasheet BST-BMI270-DS000
+  - Footprint: `Bosch_LGA-14_3x2.5mm_P0.5mm` (standard KiCad library)
+  - Pin 1 (SDO) → SPI MISO, Pin 12 (CSB) → chip select, Pin 13 (SCx) → SPI clock, Pin 14 (SDx) → SPI MOSI
+  - Pin 4 (INT1) → data-ready interrupt on PC5
+  - Pins 2,3,9,10,11 (auxiliary OIS interface) left floating per datasheet
+- **VDD decoupling**: 100nF +/- 10% on pin 8 (main analog+digital supply)
+- **VDDIO decoupling**: 100nF +/- 10% on pin 5 (digital I/O supply)
+  - Both VDD and VDDIO powered from same 3.3V rail (valid per datasheet: VDD 1.71–3.6V, VDDIO 1.2–3.6V)
+- **Ground**: Both GND (pin 7) and GNDIO (pin 6) connected to system ground
+- **Top-level wiring**: `imu.gnd ~ power.gnd` added in tf405.ato
+- 3 components total (BMI270 + 2 decoupling caps), 2 passing assert constraints
+- `ato build` passes cleanly, LCSC parts auto-resolved (C14663 for 100nF caps)
 
-**Acceptance Criteria**:
-- Component instantiated with correct footprint
-- All 4 assert statements implemented:
-  - `vdd within 1.71V to 3.6V`
-  - `vddio within 1.2V to 3.6V`
-  - `c_vdd.value within 80nF to 120nF`
-  - `c_vddio.value within 80nF to 120nF`
-- Ground connection added in tf405.ato
-- SPI1 configuration documented (Mode 0, 10MHz max)
-- `ato build` compiles without errors
+**Assertions Implemented (2/4 spec constraints)**:
+- ✅ `c_vdd.value within 80nF to 120nF`
+- ✅ `c_vddio.value within 80nF to 120nF`
+- ⚠️ `vdd within 1.71V to 3.6V` — cannot verify: atopile v0.2.69 solver handles passive values only
+- ⚠️ `vddio within 1.2V to 3.6V` — same limitation
 
-**Notes**:
-- Spec mentions separate VDD and VDDIO but current implementation only has single `vdd` pin - clarify if separate pins needed
-- GYRO_1_ALIGN: CW270_DEG is firmware config, not hardware
-- No BMI270 package available on packages.atopile.io - custom implementation required
+**Discoveries**:
+- BMI270 has separate GND (pin 7) and GNDIO (pin 6) — both must be connected to system ground
+- CS pull-up resistor is optional per spec; MCU GPIO drives CS directly (active low) which is sufficient
+- SPI Mode 0 (CPOL=0, CPHA=0), max 10MHz — firmware configuration, not enforced in hardware
+- GYRO_1_ALIGN: CW270_DEG is firmware config, depends on physical PCB orientation
 
 ---
 
@@ -613,7 +616,7 @@
 
 **Required Implementation**:
 Add ground connections in tf405.ato for all modules:
-- `imu.gnd ~ power.gnd`
+- ~~`imu.gnd ~ power.gnd`~~ (done in TASK-004)
 - `baro.gnd ~ power.gnd`
 - `flash.gnd ~ power.gnd`
 - `osd.gnd ~ power.gnd`
@@ -808,7 +811,7 @@ Add ground connections in tf405.ato for all modules:
 **Current Completion Status by Module**:
 - Power: **100%** (TASK-002 complete — 20 components, 5 asserts, ato build passes)
 - MCU: **100%** (TASK-001 complete — 18 components, 11 asserts, ato build passes)
-- IMU: ~25% (wiring done, component missing)
+- IMU: **100%** (TASK-004 complete — 3 components, 2 asserts, ato build passes)
 - Barometer: ~5% (wiring done, component + bus pullups missing)
 - Flash: ~40% (wiring done, component missing)
 - OSD: ~30% (wiring done, component + video path missing)
@@ -822,12 +825,12 @@ Add ground connections in tf405.ato for all modules:
 - Custom implementation required: ~85-90% (all custom ICs)
 - Generic passives (Capacitor, Resistor) work with custom component defs + auto-selection
 
-**Estimated Work Remaining**: ~70% of circuit implementation + ~65% of constraint validation
+**Estimated Work Remaining**: ~65% of circuit implementation + ~60% of constraint validation
 
 **Code Audit Results**:
 - ~27 TODO comments remaining (down from 43)
 - 1 commented-out connection (intentional: sbus_inv.uart_rx in tf405.ato)
-- 16/44 assert statements implemented (MCU + Power modules; 3 voltage-level asserts not feasible in v0.2.69)
+- 23/44 assert statements implemented (MCU + Power + USB + IMU modules; 5 voltage-level asserts not feasible in v0.2.69)
 - 0 FIXME/HACK/PLACEHOLDER markers
 - 1 connector definition incomplete (SpareConnector missing duplicate power pins)
 
