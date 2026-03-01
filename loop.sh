@@ -81,7 +81,7 @@ while true; do
         --dangerously-skip-permissions \
         --verbose \
         --output-format "$OUTPUT_FORMAT" \
-        --output-file "$OUTFILE"
+        | tee "$OUTFILE"
 
     # Check for completion signal
     if [ -n "$SIGNAL" ]; then
