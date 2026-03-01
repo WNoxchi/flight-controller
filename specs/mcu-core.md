@@ -28,5 +28,34 @@ The MCU is the central component. STM32F405RGT6 in LQFP-64 package, 168MHz Corte
 - PB2 (PINIO1 via P-FET)
 - PA4 (servo/detonator solder pad, DAC capable)
 
+## Assert Constraints
+These should be validated in atopile with `assert` statements:
+```
+# HSE crystal load caps
+assert c_hse1.value within 15pF to 22pF
+assert c_hse2.value within 15pF to 22pF
+
+# VCAP internal regulator caps (required by datasheet)
+assert c_vcap1.value within 2.0uF to 2.4uF
+assert c_vcap2.value within 2.0uF to 2.4uF
+
+# Per-VDD decoupling
+assert c_vdd.value within 80nF to 120nF
+
+# VDDA filtering
+assert c_vdda_bulk.value within 0.9uF to 1.1uF
+assert c_vdda_bypass.value within 80nF to 120nF
+
+# BOOT0 pull-down (ensures boot from flash by default)
+assert r_boot0.value within 9.9kohm to 10.1kohm
+
+# NRST pull-up and debounce
+assert r_nrst.value within 9.9kohm to 10.1kohm
+assert c_nrst.value within 80nF to 120nF
+
+# PB2/BOOT1 pull-down (mandatory — prevents SRAM boot trap)
+assert r_boot1.value within 9.9kohm to 10.1kohm
+```
+
 ## Pin Budget
 39 of 51 available GPIO pins allocated. ~12 spare.

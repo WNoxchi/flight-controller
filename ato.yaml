@@ -1,0 +1,15 @@
+requires-atopile: "^0.10.8"
+
+paths:
+  src: ./src
+  layout: ./layouts
+
+builds:
+  default:
+    entry: tf405.ato:TF405
+    hide_designators: true
+
+dependencies: []
+# Dependencies will be added via `ato add` as we discover
+# packages on https://packages.atopile.io that match our needs.
+# For now we start with manual component definitions.

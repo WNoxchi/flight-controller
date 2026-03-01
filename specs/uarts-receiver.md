@@ -20,6 +20,13 @@ STM32F405 lacks hardware UART inversion. SBUS requires external N-FET inverter.
 - Separate SBUS solder pad routes through inverter; main RX pad bypasses it
 - Default: non-inverted (CRSF/ELRS). Solder bridge to select SBUS vs direct.
 
+## Assert Constraints
+```
+# SBUS inverter resistors
+assert r_sbus_gate.value within 900ohm to 1.1kohm
+assert r_sbus_pullup.value within 9.9kohm to 10.1kohm
+```
+
 ## Connectors
 - RX connector: 4-pin JST-SH 1.0 (GND, 5V, RX1, TX1)
 - GPS connector: 6-pin JST-SH 1.0 (GND, 5V, TX2, RX2, SCL, SDA)

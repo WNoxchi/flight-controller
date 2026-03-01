@@ -13,3 +13,14 @@ AT7456E analog video OSD chip on SPI2. Overlays text on composite video signal.
 - VIN (pin 17): Camera composite video in (direct, not through MCU)
 - VOUT (pin 22): Composited video out to VTX
 - Video path does NOT pass through MCU — SPI is control only
+
+## Assert Constraints
+```
+# AT7456E supply voltages (datasheet: 3.0–3.6V for both)
+assert dvdd within 3.0V to 3.6V
+assert avdd within 3.0V to 3.6V
+
+# Decoupling caps
+assert c_dvdd.value within 80nF to 120nF
+assert c_avdd.value within 80nF to 120nF
+```

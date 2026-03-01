@@ -54,3 +54,26 @@
 - AT7456E AVDD: 100nF + ferrite bead (isolated analog supply)
 - 5V bulk: 100µF electrolytic near BEC
 - 3.3V bulk: 22µF tantalum near LDO
+
+## Assert Constraints
+These should be validated in atopile with `assert` statements:
+```
+# 5V buck output
+assert rail_5v within 4.75V to 5.25V
+
+# 3.3V LDO output
+assert rail_3v3 within 3.2V to 3.4V
+
+# Battery voltage divider (10:1 ratio)
+assert r_vbat_top.value within 9.9kohm to 10.1kohm
+assert r_vbat_bot.value within 990ohm to 1.01kohm
+# ADC pin voltage at max 6S input (25.2V) must not exceed 3.3V
+assert v_adc_vbat within 0V to 3.3V
+
+# Current sense filter
+assert r_curr_filter.value within 900ohm to 1.1kohm
+assert c_curr_filter.value within 80nF to 120nF
+
+# PINIO1 gate resistor
+assert r_pinio_gate.value within 9.9kohm to 10.1kohm
+```

@@ -26,3 +26,12 @@ Video does NOT pass through MCU.
 - CAMERA_CONTROL: PB3 (Betaflight camera OSD joystick)
 - PINIO1: PB2 (switchable VBAT, see power spec)
 - PA4: servo/detonator solder pad (DAC capable, TIM2 or GPIO)
+
+## Assert Constraints
+```
+# LED current limiting resistor (3.3V supply, ~1.5mA target)
+assert r_led.value within 900ohm to 1.1kohm
+
+# LED strip data line series resistor
+assert r_led_strip.value within 300ohm to 360ohm
+```

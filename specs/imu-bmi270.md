@@ -15,6 +15,17 @@ Bosch BMI270 6-axis IMU (accel+gyro) on dedicated SPI1 bus with highest DMA prio
 - CS active low, directly driven from MCU GPIO
 - EXTI configured as rising edge for data-ready
 
+## Assert Constraints
+```
+# BMI270 supply voltage (datasheet: VDD 1.71–3.6V, VDDIO 1.2–3.6V)
+assert vdd within 1.71V to 3.6V
+assert vddio within 1.2V to 3.6V
+
+# Decoupling caps
+assert c_vdd.value within 80nF to 120nF
+assert c_vddio.value within 80nF to 120nF
+```
+
 ## Betaflight Config
 - GYRO_1_ALIGN: CW270_DEG (adjust based on physical orientation on PCB)
 - USE_ACCGYRO_BMI270
