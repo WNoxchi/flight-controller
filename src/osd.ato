@@ -1,17 +1,202 @@
 # AT7456E OSD on SPI2 — See specs/osd-at7456e.md
+#
+# Design decisions:
+# - AT7456E (MAX7456-compatible) in TSSOP-28-EP package (4.4x9.7mm, 0.65mm pitch)
+# - Chinese clone designed for 3.3V operation on ALL supply pins (unlike MAX7456 which
+#   needs 5V on AVDD/PVDD). AT7456E datasheet specifies 3.0–3.6V for all supplies.
+# - DVDD (pin 25): 3.3V digital supply, 100nF decoupling to DGND (pin 24)
+# - AVDD (pin 9): 3.3V analog supply through ferrite bead for noise isolation,
+#   100nF decoupling to AGND (pin 10)
+# - PVDD (pin 5): video driver supply, connected to same 3.3V rail (AT7456E supports
+#   3.3V on PVDD unlike MAX7456), 100nF decoupling to PGND (pin 6)
+# - VIN (pin 8): composite video input from camera (analog, not through MCU)
+# - VOUT (pin 3): composited video output to VTX (analog, not through MCU)
+# - SAG (pin 4): sag compensation output, 0.1uF cap to VOUT per datasheet
+# - SPI interface: CS (pin 20), SCLK (pin 18), SDIN/MOSI (pin 19), SDOUT/MISO (pin 17)
+#   Max SPI clock 10MHz. SPI Mode 0 (CPOL=0, CPHA=0).
+# - 27MHz crystal between CLKIN (pin 23) and XFB (pin 22), 2x load caps
+# - RESET (pin 11): active low, pulled high to DVDD via 10kΩ for normal operation
+# - HSYNC (pin 12), VSYNC (pin 13), LOS (pin 16): sync outputs, left floating
+#   (Betaflight MAX7456 driver doesn't use hardware sync outputs)
+# - CLKOUT (pin 21): buffered clock output, left floating (unused)
+# - Exposed pad (EP): connected to AGND for thermal dissipation and noise coupling
+# - Three separate ground domains (DGND, AGND, PGND) all connected to system ground
+#   at the IC — star-ground topology handled in PCB layout
+#
+# Note: Spec incorrectly states VIN=pin 17, VOUT=pin 22. Actual AT7456E/MAX7456
+# TSSOP-28 pinout: VIN=pin 8, VOUT=pin 3 (per datasheet). Pin 17=SDOUT, pin 22=XFB.
 
+from "mcu.ato" import Capacitor, Resistor
+
+# ────────────────────────────────────────────────
+# 27MHz Crystal for AT7456E video clock
+# Standard 3.2x2.5mm SMD, 20ppm, used for NTSC/PAL timing
+# 27MHz is the standard video subcarrier reference frequency
+# ────────────────────────────────────────────────
+component Crystal_27MHz:
+    footprint = "Crystal_SMD_3215-2Pin_3.2x1.5mm"
+    mpn = "ABM8-27.000MHZ-B2-T"
+    designator_prefix = "Y"
+    signal xin ~ pin 1
+    signal xout ~ pin 2
+
+# ────────────────────────────────────────────────
+# Ferrite bead for AVDD analog supply isolation
+# 0805 size, ~220Ω @ 100MHz impedance
+# Provides high-frequency noise filtering between digital 3.3V rail
+# and sensitive analog video circuitry in AT7456E
+# ────────────────────────────────────────────────
+component FerriteBead:
+    footprint = "L_0805_2012Metric"
+    mpn = "BLM21PG221SN1D"
+    designator_prefix = "FB"
+    signal p1 ~ pin 1
+    signal p2 ~ pin 2
+
+# ────────────────────────────────────────────────
+# AT7456E component definition (TSSOP-28-EP)
+# Pin mapping from AT7456E datasheet (MAX7456-compatible)
+# Package: TSSOP-28 with exposed pad, 4.4x9.7mm, 0.65mm pitch
+# ────────────────────────────────────────────────
+component AT7456E:
+    footprint = "Package_SO:TSSOP-28-1EP_4.4x9.7mm_P0.65mm"
+    mpn = "AT7456E"
+    designator_prefix = "U"
+
+    # Left side pins (1-14, top to bottom)
+    # Pin 1: N.C. (no connection)
+    # Pin 2: N.C.
+    signal vout ~ pin 3       # Video output (composited video to VTX)
+    signal sag ~ pin 4        # Sag compensation output
+    signal pvdd ~ pin 5       # Power supply for video driver (3.3V on AT7456E)
+    signal pgnd ~ pin 6       # Ground for video driver
+    # Pin 7: N.C.
+    signal vin ~ pin 8        # Video input (camera composite video)
+    signal avdd ~ pin 9       # Analog power supply (3.3V through ferrite bead)
+    signal agnd ~ pin 10      # Analog ground
+    signal reset ~ pin 11     # Reset input (active low)
+    signal hsync ~ pin 12     # Horizontal sync output (unused in Betaflight)
+    signal vsync ~ pin 13     # Vertical sync output (unused in Betaflight)
+    # Pin 14: N.C.
+
+    # Right side pins (15-28, bottom to top)
+    # Pin 15: N.C.
+    signal los ~ pin 16       # Loss of sync output (unused in Betaflight)
+    signal sdout ~ pin 17     # SPI serial data output (MISO)
+    signal sclk ~ pin 18      # SPI serial clock input
+    signal sdin ~ pin 19      # SPI serial data input (MOSI)
+    signal cs ~ pin 20        # SPI chip select (active low)
+    signal clkout ~ pin 21    # Buffered clock output (unused)
+    signal xfb ~ pin 22       # Crystal feedback
+    signal clkin ~ pin 23     # Clock input (27MHz crystal)
+    signal dgnd ~ pin 24      # Digital ground
+    signal dvdd ~ pin 25      # Digital power supply (3.3V)
+    # Pin 26: N.C.
+    # Pin 27: N.C.
+    # Pin 28: N.C.
+    signal ep ~ pin 29        # Exposed pad (connect to AGND)
+
+# ────────────────────────────────────────────────
+# OSD_AT7456E module: AT7456E + crystal + ferrite bead + decoupling + assertions
+# ────────────────────────────────────────────────
 module OSD_AT7456E:
-    signal dvdd
-    signal avdd
-    signal gnd
-    signal spi_sck
-    signal spi_miso
-    signal spi_mosi
-    signal cs
-    signal video_in
-    signal video_out
+    # Module interface signals (exposed to top-level tf405.ato)
+    signal dvdd      # 3.3V digital power input
+    signal avdd      # 3.3V analog power input (ferrite bead inside this module)
+    signal gnd       # System ground
+    signal spi_sck   # SPI2 clock (PB13)
+    signal spi_miso  # SPI2 MISO (PB14)
+    signal spi_mosi  # SPI2 MOSI (PB15)
+    signal cs        # Chip select (PB12, active low)
+    signal video_in  # Composite video from camera
+    signal video_out # Composited video to VTX
 
-    # TODO: Implement AT7456E component with TQFP-28 footprint
-    # TODO: DVDD 100nF decoupling
-    # TODO: AVDD ferrite bead + 100nF (isolated analog)
-    # TODO: Video path connections (VIN pin 17, VOUT pin 22)
+    # ── AT7456E IC ──
+    osd = new AT7456E
+
+    # ── Power connections ──
+    # DVDD: digital supply, direct from 3.3V rail
+    osd.dvdd ~ dvdd
+    # PVDD: video driver supply, same 3.3V rail (AT7456E supports 3.3V on PVDD)
+    osd.pvdd ~ dvdd
+
+    # AVDD: analog supply through ferrite bead for noise isolation
+    # Ferrite bead placed between 3.3V rail input and AVDD pin to filter
+    # high-frequency digital switching noise from the sensitive analog video circuits
+    fb_avdd = new FerriteBead
+    avdd ~ fb_avdd.p1; fb_avdd.p2 ~ osd.avdd
+
+    # Ground connections — all three ground domains to system ground
+    # Star-ground topology at IC level; PCB layout handles trace routing
+    osd.dgnd ~ gnd
+    osd.agnd ~ gnd
+    osd.pgnd ~ gnd
+    osd.ep ~ gnd     # Exposed pad to AGND plane for thermal + noise
+
+    # ── SPI connections ──
+    osd.sclk ~ spi_sck     # SPI clock (max 10MHz)
+    osd.sdout ~ spi_miso   # SPI data out (MISO)
+    osd.sdin ~ spi_mosi    # SPI data in (MOSI)
+    osd.cs ~ cs              # Chip select (active low)
+
+    # ── Video path (analog, does NOT pass through MCU) ──
+    osd.vin ~ video_in      # Camera composite video → OSD input
+    osd.vout ~ video_out    # OSD composited output → VTX
+
+    # ── RESET pullup to DVDD (10kΩ) ──
+    # Active low reset: pulling high keeps AT7456E in normal operation.
+    # No need for MCU-controlled reset — power-on reset is sufficient.
+    r_reset = new Resistor
+    r_reset.value = 10kohm +/- 1%
+    osd.reset ~ r_reset.p1; r_reset.p2 ~ dvdd
+
+    # ── 27MHz crystal oscillator (CLKIN/XFB) ──
+    # 27MHz is the standard NTSC/PAL video timing reference.
+    # Crystal connected between CLKIN (pin 23) and XFB (pin 22).
+    # Load caps: 15pF each (typical for 7-10pF crystal load + ~5pF stray)
+    xtal = new Crystal_27MHz
+    xtal.xin ~ osd.clkin
+    xtal.xout ~ osd.xfb
+
+    c_xtal1 = new Capacitor
+    c_xtal1.value = 15pF +/- 10%
+    osd.clkin ~ c_xtal1.p1; c_xtal1.p2 ~ gnd
+
+    c_xtal2 = new Capacitor
+    c_xtal2.value = 15pF +/- 10%
+    osd.xfb ~ c_xtal2.p1; c_xtal2.p2 ~ gnd
+
+    # ── DVDD decoupling (100nF, placed close to pin 25) ──
+    c_dvdd = new Capacitor
+    c_dvdd.value = 100nF +/- 10%
+    osd.dvdd ~ c_dvdd.p1; c_dvdd.p2 ~ gnd
+
+    # ── AVDD decoupling (100nF, placed after ferrite bead, close to pin 9) ──
+    # This cap goes on the IC side of the ferrite bead (between FB and AGND)
+    c_avdd = new Capacitor
+    c_avdd.value = 100nF +/- 10%
+    osd.avdd ~ c_avdd.p1; c_avdd.p2 ~ gnd
+
+    # ── PVDD decoupling (100nF, placed close to pin 5) ──
+    c_pvdd = new Capacitor
+    c_pvdd.value = 100nF +/- 10%
+    osd.pvdd ~ c_pvdd.p1; c_pvdd.p2 ~ gnd
+
+    # ── SAG compensation capacitor ──
+    # SAG pin (pin 4) provides sag compensation for the video output.
+    # 0.1uF capacitor from SAG to VOUT per MAX7456 application circuit.
+    # This corrects for DC level sag in the video signal caused by
+    # AC-coupled video paths.
+    c_sag = new Capacitor
+    c_sag.value = 100nF +/- 10%
+    osd.sag ~ c_sag.p1; c_sag.p2 ~ video_out
+
+    # ── Assert constraints (spec validation) ──
+    # Decoupling cap values per AT7456E datasheet recommendation
+    assert c_dvdd.value within 80nF to 120nF
+    assert c_avdd.value within 80nF to 120nF
+    # Note: DVDD/AVDD voltage-level assertions (3.0–3.6V) cannot be verified
+    # in atopile v0.2.69 — solver only handles passive component values, not
+    # rail voltages. Documented for reference:
+    # assert dvdd within 3.0V to 3.6V    (datasheet requirement)
+    # assert avdd within 3.0V to 3.6V    (datasheet requirement)

@@ -56,6 +56,7 @@ module TF405:
     osd.spi_miso ~ mcu.pb14
     osd.spi_mosi ~ mcu.pb15
     osd.cs ~ mcu.pb12
+    osd.gnd ~ power.gnd
 
     # ── Blackbox Flash (SPI3) ──
     flash = new Flash_W25Q128

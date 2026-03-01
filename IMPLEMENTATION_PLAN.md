@@ -1,18 +1,18 @@
 # Flight Controller Implementation Plan
 
-**Last Updated**: 2026-03-01 — TASK-007 (Flash W25Q128) completed
+**Last Updated**: 2026-03-01 — TASK-008 (OSD AT7456E) completed
 
-**Status**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, and TASK-007 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), and Flash W25Q128 (4 components, 1 assert) fully implemented with clean `ato build`. 28 total assertions passing. Remaining tasks: OSD, connectors, wiring, misc peripherals.
+**Status**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-007, and TASK-008 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), and OSD AT7456E (10 components, 2 asserts) fully implemented with clean `ato build`. 30 total assertions passing. Remaining tasks: connectors, wiring, misc peripherals.
 
-**Project State**: Foundation + USB + Sensors + Flash complete — MCU, power, USB, IMU, baro, and flash modules implemented. 65 components total in BOM (33 unique). Build pipeline operational. I2C1 bus fully wired with pullups. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI3=W25Q128; SPI2=AT7456E pending). Custom component patterns well-established for remaining ICs.
+**Project State**: Foundation + USB + Sensors + Flash + OSD complete — MCU, power, USB, IMU, baro, flash, and OSD modules implemented. 75 components total in BOM (37 unique). Build pipeline operational. I2C1 bus fully wired with pullups. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI2=AT7456E, SPI3=W25Q128). Custom component patterns well-established for remaining tasks.
 
 **Key Findings**:
-- ~10 TODO comments remain (down from 43 — MCU, power, USB, IMU, baro, and flash TODOs resolved)
-- 28/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash modules)
+- ~6 TODO comments remain (down from 43 — MCU, power, USB, IMU, baro, flash, and OSD TODOs resolved)
+- 30/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash + OSD modules)
 - 3 voltage-level assertions (rail_5v, rail_3v3, v_adc_vbat) cannot be verified in atopile v0.2.69 — solver only handles passive component values, not computed voltages
-- USB, IMU, baro, and flash grounds now connected; remaining 12 modules still missing ground
+- USB, IMU, baro, flash, and OSD grounds now connected; remaining 11 modules still missing ground
 - Most connector wiring incomplete
-- No atopile packages available for custom ICs (W25Q128, AT7456E)
+- No atopile packages available for custom ICs (all custom-defined)
 - SpareConnector incomplete: missing duplicate power pins per spec (should be 6-pin, only 4 signals defined)
 - Power module exposes adc_vbat, adc_curr, pinio1, vbat_sw, usb_vbus, curr_in signals for top-level wiring
 - atopile v0.2.69 supports alphanumeric pin names (`pin A4`) — useful for USB-C and other non-numeric pad names
@@ -308,38 +308,54 @@
 
 ---
 
-### TASK-008: Implement OSD AT7456E
+### TASK-008: Implement OSD AT7456E ✅ COMPLETE
 **Spec**: `specs/osd-at7456e.md`
-**File**: `src/osd.ato` (lines 14-17)
-**Current State**: SPI2 connections complete (PB13/PB14/PB15/PB12), component and video path missing, ground missing
+**File**: `src/osd.ato`
+**Completed**: 2026-03-01
 **Priority**: MEDIUM - Needed for on-screen display
 **Dependencies**: TASK-001 (SPI2), TASK-002 (3.3V rail), TASK-010 (video connectors)
 
-**Required Implementation**:
-- AT7456E component with TQFP-28 footprint (custom - no atopile package available)
-- DVDD decoupling: 100nF
-- AVDD ferrite bead + 100nF (isolated analog supply)
-- Video path connections:
-  - VIN (pin 17) connected to `video_in`
-  - VOUT (pin 22) connected to `video_out`
-- Fix missing ground connection in tf405.ato
+**Implementation Summary**:
+- **AT7456E TSSOP-28-EP custom component**: full 28-pin mapping + exposed pad from MAX7456/AT7456E datasheet
+  - Footprint: `Package_SO:TSSOP-28-1EP_4.4x9.7mm_P0.65mm` (standard KiCad library)
+  - Pin 8 (VIN) → camera composite video input (NOT pin 17 as spec incorrectly stated)
+  - Pin 3 (VOUT) → composited video output to VTX (NOT pin 22 as spec incorrectly stated)
+  - Pin 18 (SCLK) → SPI clock, Pin 19 (SDIN) → MOSI, Pin 17 (SDOUT) → MISO, Pin 20 (CS) → chip select
+  - Pin 25 (DVDD) → digital supply, Pin 9 (AVDD) → analog supply, Pin 5 (PVDD) → video driver supply
+  - Three separate ground domains: DGND (24), AGND (10), PGND (6) — all to system ground
+  - Exposed pad (pin 29) → AGND for thermal dissipation
+- **DVDD decoupling**: 100nF +/- 10% to DGND (pin 24)
+- **AVDD decoupling**: 100nF +/- 10% to AGND (pin 10), after ferrite bead
+- **PVDD decoupling**: 100nF +/- 10% to PGND (pin 6)
+- **Ferrite bead**: BLM21PG221SN1D (0805, 220Ω@100MHz) isolating AVDD from digital 3.3V rail
+- **27MHz crystal**: ABM8-27.000MHZ-B2-T on CLKIN (pin 23) / XFB (pin 22) with 2x 15pF load caps
+- **RESET pullup**: 10kΩ +/- 1% to DVDD (keeps IC in normal operation)
+- **SAG compensation**: 100nF cap from SAG (pin 4) to VOUT per MAX7456 application circuit
+- **Ground connection**: `osd.gnd ~ power.gnd` added in tf405.ato
+- HSYNC (12), VSYNC (13), LOS (16), CLKOUT (21) left floating (unused in Betaflight)
+- 10 components total (AT7456E + crystal + ferrite bead + reset pullup + 2 crystal caps + 4 decoupling/sag caps)
+- 2 passing assert constraints
+- `ato build` passes cleanly, LCSC parts auto-resolved (C14663 for 100nF caps, C1644 for 15pF caps)
 
-**Acceptance Criteria**:
-- Component instantiated with correct footprint
-- All 4 assert statements implemented:
-  - `dvdd within 3.0V to 3.6V`
-  - `avdd within 3.0V to 3.6V`
-  - `c_dvdd.value within 80nF to 120nF`
-  - `c_avdd.value within 80nF to 120nF`
-- Video pins mapped to physical pins 17 and 22
-- Ground connection added
-- `ato build` compiles without errors
+**Assertions Implemented (2/4 spec constraints)**:
+- ✅ `c_dvdd.value within 80nF to 120nF`
+- ✅ `c_avdd.value within 80nF to 120nF`
+- ⚠️ `dvdd within 3.0V to 3.6V` — cannot verify: atopile v0.2.69 solver handles passive values only
+- ⚠️ `avdd within 3.0V to 3.6V` — same limitation
+
+**Discoveries**:
+- AT7456E package is TSSOP-28-EP (NOT TQFP-28 as spec header says). TQFP has leads on 4 sides; TSSOP has leads on 2 sides.
+- Spec pin numbers were incorrect: spec said VIN=pin 17, VOUT=pin 22. Actual: VIN=pin 8, VOUT=pin 3. Pin 17=SDOUT (MISO), pin 22=XFB (crystal feedback).
+- AT7456E (Chinese clone) operates at 3.3V on ALL supply pins including PVDD, unlike original MAX7456 which needs 5V on AVDD/PVDD.
+- Three separate power domains (DVDD/DGND, AVDD/AGND, PVDD/PGND) + exposed pad. All grounds connect to system ground; star-ground handled in PCB layout.
+- 27MHz crystal required for NTSC/PAL video timing reference (connected between CLKIN and XFB pins).
+- FerriteBead component created (new pattern: `designator_prefix = "FB"`, 0805 size, BLM21PG221SN1D).
 
 **Notes**:
+- NDAA compliance: AT7456E by ZHONGKEWEI (Chinese company — may require review for NDAA)
 - SPI2 pins correctly mapped: PB13 (SCK), PB14 (MISO), PB15 (MOSI), PB12 (CS)
-- Ferrite bead on AVDD for analog isolation (tf405.ato line 49 acknowledges this)
-- Video signal wiring done in TASK-010
-- No AT7456E package available on packages.atopile.io - custom implementation required
+- Video signal wiring (camera→OSD, OSD→VTX) done in TASK-010
+- LCSC part: C82351 (AT7456E)
 
 ---
 
@@ -834,7 +850,7 @@ Add ground connections in tf405.ato for all modules:
 - IMU: **100%** (TASK-004 complete — 3 components, 2 asserts, ato build passes)
 - Barometer: **100%** (TASK-005 complete — 5 components, 4 asserts, ato build passes)
 - Flash: **100%** (TASK-007 complete — 4 components, 1 assert, ato build passes)
-- OSD: ~30% (wiring done, component + video path missing)
+- OSD: **100%** (TASK-008 complete — 10 components, 2 asserts, ato build passes)
 - USB: **100%** (TASK-003 complete — 10 components, 5 asserts, ato build passes)
 - Motor/ESC: ~20% (connector defined, not wired)
 - UART/RX: ~20% (connectors defined, not wired)
@@ -845,12 +861,12 @@ Add ground connections in tf405.ato for all modules:
 - Custom implementation required: ~85-90% (all custom ICs)
 - Generic passives (Capacitor, Resistor) work with custom component defs + auto-selection
 
-**Estimated Work Remaining**: ~60% of circuit implementation + ~55% of constraint validation
+**Estimated Work Remaining**: ~50% of circuit implementation + ~50% of constraint validation
 
 **Code Audit Results**:
-- ~10 TODO comments remaining (down from 43)
+- ~6 TODO comments remaining (down from 43)
 - 1 commented-out connection (intentional: sbus_inv.uart_rx in tf405.ato)
-- 28/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash modules; 8 voltage-level asserts not feasible in v0.2.69)
+- 30/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash + OSD modules; 8 voltage-level asserts not feasible in v0.2.69)
 - 0 FIXME/HACK/PLACEHOLDER markers
 - 1 connector definition incomplete (SpareConnector missing duplicate power pins)
 
@@ -859,10 +875,10 @@ Add ground connections in tf405.ato for all modules:
 ## Critical Blockers
 
 1. **Missing ground connections** - Systematic issue across 12 remaining modules (TASK-018)
-2. **Most component internals are TODO stubs** - MCU and Power done, sensors/peripherals still pending
+2. **Misc peripheral stubs remain** - LED, beeper, LED strip, camera control, SBUS inverter still TODO
 3. **No PCB stackup defined** - Blocks layout for impedance-critical signals (TASK-020)
 4. **GPS connector I2C routing missing** - GPS magnetometer I2C1 wiring needed (remaining TASK-006)
-5. **No atopile packages for custom ICs** - AT7456E needs custom implementation (W25Q128 done)
+5. **Connector wiring incomplete** - ESC, RX, GPS, spare, camera, VTX connectors not wired
 
 ---
 
