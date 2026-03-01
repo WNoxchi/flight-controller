@@ -1,8 +1,8 @@
 # Flight Controller Implementation Plan
 
-**Last Updated**: 2026-03-01 — TASK-011A (SpareConnector 6-pin fix) completed
+**Last Updated**: 2026-03-01 — TASK-020 (PCB Layer Stackup) completed
 
-**Status**: TASK-001 through TASK-019 + TASK-011A complete (all circuit implementation and validation tasks). MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), OSD AT7456E (10 components, 2 asserts), ESC/Motor wiring (signal routing only), Video path (signal routing only), UART connectors (all 3 wired + I2C1 GPS), SBUS inverter (3 components, 2 asserts), Status LED (2 components, 1 assert), Beeper (3 components, 1 assert), LED strip (1 component, 1 assert), Camera control (direct passthrough), PA4 breakout (direct passthrough), and SpareConnector 6-pin definition fully implemented with clean `ato build`. 35 total assertions passing. All circuit tasks complete — remaining items are documentation/spec tasks (TASK-020, TASK-021, TASK-022).
+**Status**: TASK-001 through TASK-020 + TASK-011A complete (all circuit implementation, validation, and PCB stackup tasks). MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), OSD AT7456E (10 components, 2 asserts), ESC/Motor wiring (signal routing only), Video path (signal routing only), UART connectors (all 3 wired + I2C1 GPS), SBUS inverter (3 components, 2 asserts), Status LED (2 components, 1 assert), Beeper (3 components, 1 assert), LED strip (1 component, 1 assert), Camera control (direct passthrough), PA4 breakout (direct passthrough), SpareConnector 6-pin definition, and PCB layer stackup specification fully implemented with clean `ato build`. 35 total assertions passing. All circuit tasks complete — remaining items are documentation tasks (TASK-021, TASK-022).
 
 **Project State**: ALL circuit implementation and validation tasks complete — MCU, power, USB, IMU, baro, flash, OSD, SBUS inverter, status LED, beeper, LED strip, camera control, PA4 breakout implemented. All connectors fully wired and spec-compliant (ESC, RX, GPS, Spare [6-pin], Camera, VTX). 84 components total in BOM (41 unique). 35 assertions passing. Build pipeline operational. I2C1 bus fully wired with pullups + GPS connector. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI2=AT7456E, SPI3=W25Q128). All 5 usable UARTs wired (UART1=RX/SBUS, UART2=GPS, UART3=Spare, UART4=ESC telem, UART5=SmartAudio). All ground connections added for connectors and misc modules. All GPIO breakouts complete (PA4 servo/detonator pad). Only documentation tasks remain (TASK-020, 021, 022).
 
@@ -726,32 +726,35 @@ All 9 voltage asserts are preserved as comments in source files for documentatio
 
 ## Priority 6: PCB Constraints & Manufacturing (Non-Code)
 
-### TASK-020: Define PCB Layer Stackup
-**Spec**: `specs/board-constraints.md` (implied, currently missing)
-**File**: Create new `specs/pcb-stackup.md`
-**Current State**: Completely undefined
+### TASK-020: Define PCB Layer Stackup ✅ COMPLETE
+**Spec**: `specs/board-constraints.md` (implied)
+**File**: `specs/pcb-stackup.md` (new)
+**Completed**: 2026-03-01
 **Priority**: HIGH - Required for USB impedance, video signals, power distribution
 **Dependencies**: None (documentation task)
 
-**Required Specification**:
-- Layer count (recommend 4-layer: Sig/GND/PWR/Sig)
-- Copper weight (recommend 1oz outer, 0.5oz inner)
-- Prepreg thickness
-- Core thickness
-- Target impedances:
-  - USB D+/D-: 90Ω differential
-  - Video signals: 75Ω single-ended
-- Minimum trace/space rules
-- Via specifications
+**Implementation Summary**:
+- **4-layer stackup**: L1 Signal (1oz) / L2 GND plane (0.5oz) / L3 Power plane (0.5oz) / L4 Signal (1oz)
+- **Standard JLCPCB 4-layer process**: 1.6mm total thickness, 2116 prepreg (127µm, εr≈4.3), 800µm core
+- **USB 2.0 differential**: 90Ω ±10%, 0.20mm traces / 0.15mm gap, microstrip over L2 GND
+- **Video 75Ω single-ended**: 0.30mm traces, microstrip over L2 GND
+- **Power trace sizing**: VBAT/motor ≥2mm or copper pour (30A burst), 5V ≥0.5mm (3A), 3.3V ≥0.25mm
+- **Via specs**: 0.3mm drill standard, 0.4mm for power, stitching vias ≤3mm spacing
+- **DRC rules**: 5 mil min trace/space (JLCPCB standard), ENIG surface finish recommended
+- **Component placement guidelines**: MP1584EN near ESC connector, MCU center, IMU at center of mass, BMP390 away from heat/airflow
+- **Thermal management**: Thermal vias under AMS1117-3.3 tab and AT7456E exposed pad
+- **Impedance calculations**: Microstrip formulas verified for actual stackup dimensions
+- **Layout checklist**: 11-item checklist for layout engineer
 
-**Acceptance Criteria**:
-- PCB stackup document created
-- Impedance calculations documented
-- Manufacturer DFM rules specified
+**Acceptance Criteria** (all met):
+- ✅ PCB stackup document created (`specs/pcb-stackup.md`)
+- ✅ Impedance calculations documented (USB 90Ω diff, video 75Ω SE)
+- ✅ Manufacturer DFM rules specified (JLCPCB 4-layer standard)
 
 **Notes**:
-- This is NOT an atopile implementation task - purely documentation
-- Blocks PCB layout phase
+- This is NOT an atopile implementation task — purely documentation
+- No longer blocks PCB layout phase
+- Trace widths are approximations; must verify with manufacturer's actual stackup using field solver
 
 ---
 
@@ -845,7 +848,7 @@ All 9 voltage asserts are preserved as comments in source files for documentatio
 
 1. ~~**Missing ground connections**~~ ✅ RESOLVED (TASK-018 complete — all 16 modules grounded)
 2. ~~**Misc peripheral stubs remain**~~ ✅ RESOLVED (all misc peripherals complete including TASK-017 PA4 breakout)
-3. **No PCB stackup defined** - Blocks layout for impedance-critical signals (TASK-020)
+3. ~~**No PCB stackup defined**~~ ✅ RESOLVED (TASK-020 complete — `specs/pcb-stackup.md` with 4-layer stackup, impedance calculations, DFM rules)
 4. ~~**GPS connector I2C routing missing**~~ ✅ RESOLVED (TASK-006 complete via TASK-011)
 5. ~~**Connector wiring incomplete**~~ ✅ RESOLVED (all connectors now fully wired)
 
