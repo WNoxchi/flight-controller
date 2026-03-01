@@ -90,6 +90,21 @@ module TF405:
     cam_conn = new CameraConnector
     vtx_conn = new VTXConnector
 
+    # ── ESC Connector Wiring (TASK-009) ──
+    # Motor outputs: TIM8 CH1-CH4 for DShot PWM (not bitbanged, DMA2 errata ES0206 §2.1.10)
+    # All 4 motors on same timer ensures synchronized PWM updates via DMA2
+    mcu.pc6 ~ esc_conn.m1   # TIM8_CH1 → Motor 1
+    mcu.pc7 ~ esc_conn.m2   # TIM8_CH2 → Motor 2
+    mcu.pc8 ~ esc_conn.m3   # TIM8_CH3 → Motor 3
+    mcu.pc9 ~ esc_conn.m4   # TIM8_CH4 → Motor 4
+    # ESC telemetry: half-duplex UART4 on PA1 for RPM/voltage/current/temp feedback
+    mcu.pa1 ~ esc_conn.telem   # UART4_RX → ESC telemetry
+    # Current sense: ESC connector CURR pin → power module filter (1kΩ + 100nF RC, fc~1.6kHz) → MCU PC1 ADC
+    esc_conn.curr ~ power.curr_in
+    # ESC power: battery voltage passthrough and ground
+    esc_conn.vbat ~ power.vbat
+    esc_conn.gnd ~ power.gnd
+
     # ── Misc ──
     led = new StatusLED
     led.gpio ~ mcu.pb0

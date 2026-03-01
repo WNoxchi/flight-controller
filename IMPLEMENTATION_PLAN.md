@@ -1,17 +1,17 @@
 # Flight Controller Implementation Plan
 
-**Last Updated**: 2026-03-01 — TASK-008 (OSD AT7456E) completed
+**Last Updated**: 2026-03-01 — TASK-009 (Motor/ESC wiring) completed
 
-**Status**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-007, and TASK-008 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), and OSD AT7456E (10 components, 2 asserts) fully implemented with clean `ato build`. 30 total assertions passing. Remaining tasks: connectors, wiring, misc peripherals.
+**Status**: TASK-001, TASK-002, TASK-003, TASK-004, TASK-005, TASK-007, TASK-008, and TASK-009 complete. MCU core (18 components, 11 asserts), power system (20 components, 5 asserts), USB-C interface (10 components, 5 asserts), IMU BMI270 (3 components, 2 asserts), Barometer BMP390 (5 components, 4 asserts), Flash W25Q128 (4 components, 1 assert), OSD AT7456E (10 components, 2 asserts), and ESC/Motor wiring (0 new components, signal routing only) fully implemented with clean `ato build`. 30 total assertions passing. Remaining tasks: video path, UART connectors, misc peripherals.
 
-**Project State**: Foundation + USB + Sensors + Flash + OSD complete — MCU, power, USB, IMU, baro, flash, and OSD modules implemented. 75 components total in BOM (37 unique). Build pipeline operational. I2C1 bus fully wired with pullups. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI2=AT7456E, SPI3=W25Q128). Custom component patterns well-established for remaining tasks.
+**Project State**: Foundation + USB + Sensors + Flash + OSD + Motor/ESC complete — MCU, power, USB, IMU, baro, flash, OSD modules implemented, ESC connector fully wired. 75 components total in BOM (37 unique). Build pipeline operational. I2C1 bus fully wired with pullups. All SPI buses have their ICs instantiated (SPI1=BMI270, SPI2=AT7456E, SPI3=W25Q128). Motor outputs (TIM8 CH1-4) wired to ESC connector. Custom component patterns well-established for remaining tasks.
 
 **Key Findings**:
 - ~6 TODO comments remain (down from 43 — MCU, power, USB, IMU, baro, flash, and OSD TODOs resolved)
 - 30/44 assert statements implemented (MCU + Power + USB + IMU + Baro + Flash + OSD modules)
 - 3 voltage-level assertions (rail_5v, rail_3v3, v_adc_vbat) cannot be verified in atopile v0.2.69 — solver only handles passive component values, not computed voltages
-- USB, IMU, baro, flash, and OSD grounds now connected; remaining 11 modules still missing ground
-- Most connector wiring incomplete
+- USB, IMU, baro, flash, OSD, and ESC grounds now connected; remaining 10 modules still missing ground
+- ESC connector fully wired (motors, telemetry, current sense, power); other connectors still incomplete
 - No atopile packages available for custom ICs (all custom-defined)
 - SpareConnector incomplete: missing duplicate power pins per spec (should be 6-pin, only 4 signals defined)
 - Power module exposes adc_vbat, adc_curr, pinio1, vbat_sw, usb_vbus, curr_in signals for top-level wiring
@@ -361,36 +361,29 @@
 
 ## Priority 3: Connectors & Peripheral Wiring
 
-### TASK-009: Wire Motor Outputs and ESC Telemetry
+### TASK-009: Wire Motor Outputs and ESC Telemetry ✅ COMPLETE
 **Spec**: `specs/motors-esc.md`
 **Files**: `src/tf405.ato`, `src/connectors.ato`
-**Current State**: ESC connector defined, motor pins defined, but NOT WIRED
+**Completed**: 2026-03-01
 **Priority**: HIGH - Critical for motor control
 **Dependencies**: TASK-001 (TIM8 motor pins), TASK-002 (VBAT, current sense)
 
-**Required Implementation**:
-- Wire motor outputs in tf405.ato:
-  - `mcu.pc6 ~ esc_conn.m1` (TIM8_CH1)
-  - `mcu.pc7 ~ esc_conn.m2` (TIM8_CH2)
-  - `mcu.pc8 ~ esc_conn.m3` (TIM8_CH3)
-  - `mcu.pc9 ~ esc_conn.m4` (TIM8_CH4)
+**Implementation Summary**:
+- **Motor outputs**: 4x TIM8 channels wired from MCU to ESC connector
+  - `mcu.pc6 ~ esc_conn.m1` (TIM8_CH1 → Motor 1)
+  - `mcu.pc7 ~ esc_conn.m2` (TIM8_CH2 → Motor 2)
+  - `mcu.pc8 ~ esc_conn.m3` (TIM8_CH3 → Motor 3)
+  - `mcu.pc9 ~ esc_conn.m4` (TIM8_CH4 → Motor 4)
+- **ESC telemetry**: `mcu.pa1 ~ esc_conn.telem` (UART4_RX, half-duplex)
+- **Current sense**: `esc_conn.curr ~ power.curr_in` (feeds existing 1kΩ + 100nF RC filter → PC1 ADC)
+- **ESC power**: `esc_conn.vbat ~ power.vbat` + `esc_conn.gnd ~ power.gnd`
+- No new components added (pure signal routing in tf405.ato)
+- `ato build` passes cleanly, all 30 existing assertions still passing
 
-- Wire ESC telemetry:
-  - `mcu.pa1 ~ esc_conn.telem` (UART4_RX)
-
-- Wire current sense:
-  - `esc_conn.curr ~ [current sense filter] ~ mcu.pc1` (implemented in TASK-002)
-
-- Wire ESC power:
-  - Uncomment/fix line 30 in tf405.ato: `power.vbat ~ esc_conn.vbat`
-  - Add ground: `power.gnd ~ esc_conn.gnd`
-
-**Acceptance Criteria**:
-- All 4 motor outputs wired
-- Telemetry UART wired
-- Current sense path connected
-- Power and ground connected
-- `ato build` compiles without errors
+**Discoveries**:
+- Current sense filter (1kΩ + 100nF RC, fc~1.6kHz) already implemented in power.ato — only needed to wire `esc_conn.curr ~ power.curr_in`
+- ESC connector definition in connectors.ato already had all 8 signals correctly defined
+- No new assertions needed — this task is pure wiring with no passive components
 
 **Notes**:
 - TIM8 → DMA2 stream assignments per DMA2 errata workaround (ES0206 §2.1.10)
@@ -852,7 +845,7 @@ Add ground connections in tf405.ato for all modules:
 - Flash: **100%** (TASK-007 complete — 4 components, 1 assert, ato build passes)
 - OSD: **100%** (TASK-008 complete — 10 components, 2 asserts, ato build passes)
 - USB: **100%** (TASK-003 complete — 10 components, 5 asserts, ato build passes)
-- Motor/ESC: ~20% (connector defined, not wired)
+- Motor/ESC: **100%** (TASK-009 complete — all 8 ESC pins wired, ato build passes)
 - UART/RX: ~20% (connectors defined, not wired)
 - Video/Misc: ~30% (partial wiring, circuits missing)
 
@@ -874,11 +867,11 @@ Add ground connections in tf405.ato for all modules:
 
 ## Critical Blockers
 
-1. **Missing ground connections** - Systematic issue across 12 remaining modules (TASK-018)
+1. **Missing ground connections** - Systematic issue across 10 remaining modules (TASK-018)
 2. **Misc peripheral stubs remain** - LED, beeper, LED strip, camera control, SBUS inverter still TODO
 3. **No PCB stackup defined** - Blocks layout for impedance-critical signals (TASK-020)
 4. **GPS connector I2C routing missing** - GPS magnetometer I2C1 wiring needed (remaining TASK-006)
-5. **Connector wiring incomplete** - ESC, RX, GPS, spare, camera, VTX connectors not wired
+5. **Connector wiring incomplete** - RX, GPS, spare, camera, VTX connectors not wired (ESC done)
 
 ---
 
