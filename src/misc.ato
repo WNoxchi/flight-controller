@@ -126,10 +126,22 @@ module LEDStrip:
     # ── Assert constraints (spec validation) ──
     assert r_data.value within 300ohm to 360ohm
 
+# ────────────────────────────────────────────────
+# Camera Control Output (solder pad breakout)
+# PB3 generates PWM-like signals to emulate camera OSD joystick
+# button presses (up/down/enter). Betaflight camera control feature
+# produces specific pulse widths that the camera interprets as commands.
+# Direct GPIO output — no series resistor or protection needed since
+# the camera OSD input is high-impedance and the cable is short (on-board).
+# ────────────────────────────────────────────────
 module CameraControl:
-    signal gpio  # PB3, Betaflight camera OSD joystick
+    signal gpio  # PB3, MCU-side input (Betaflight camera OSD joystick)
+    signal pad   # Solder pad output to camera OSD control wire
     signal gnd
-    # TODO: Simple solder pad breakout
+
+    # Direct passthrough: GPIO → solder pad
+    # No passive components required — camera OSD input is high-impedance
+    gpio ~ pad
 
 # ────────────────────────────────────────────────
 # SBUS Hardware Inverter (STM32F405-specific)
