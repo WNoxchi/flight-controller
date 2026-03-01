@@ -1,0 +1,17 @@
+# Power subsystem: VBAT → 5V Buck → 3.3V LDO
+# See specs/power.md for full requirements
+
+module PowerSystem:
+    # Power rails exposed to rest of system
+    vbat = new Electrical    # Raw battery input (7.4-25.2V)
+    rail_5v = new Electrical  # 5V regulated rail
+    rail_3v3 = new Electrical # 3.3V regulated rail
+    gnd = new Electrical      # Common ground
+
+    # TODO: Implement MP1584EN 5V buck regulator
+    # TODO: Implement AMS1117-3.3 LDO
+    # TODO: Implement VBAT TVS protection (SMBJ26A)
+    # TODO: Implement battery voltage divider (10k/1k to PC2)
+    # TODO: Implement current sense RC filter (1k + 100nF to PC1)
+    # TODO: Implement PINIO1 P-FET switch (AO3401A)
+    # TODO: Implement bulk decoupling caps

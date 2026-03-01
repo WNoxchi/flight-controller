@@ -1,0 +1,12 @@
+# BMP390 Barometer on I2C1 — See specs/baro-bmp390.md
+
+module Baro_BMP390:
+    vdd = new Electrical
+    gnd = new Electrical
+    scl = new Electrical
+    sda = new Electrical
+
+    # TODO: Implement BMP390 component with LGA-10 footprint
+    # TODO: VDD + VDDIO decoupling (100nF each)
+    # TODO: I2C pullups (4.7kΩ to 3.3V on SCL/SDA)
+    # TODO: SDO pin config for I2C address selection

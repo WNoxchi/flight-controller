@@ -1,0 +1,33 @@
+# Miscellaneous peripherals
+# See specs/video-vtx-misc.md
+
+module StatusLED:
+    gpio = new Electrical  # PB0, active low
+    vdd = new Electrical
+    gnd = new Electrical
+    # TODO: LED + current limiting resistor (typically 1kΩ for 3.3V/~1.5mA)
+
+module Beeper:
+    gpio = new Electrical  # PB1, inverted (drives N-FET)
+    gnd = new Electrical
+    # TODO: N-FET (2N7002) gate driver + passive buzzer on 5V
+
+module LEDStrip:
+    data = new Electrical  # PB6, WS2812 data
+    vdd = new Electrical   # 5V
+    gnd = new Electrical
+    # TODO: Series resistor (~330Ω) on data line
+
+module CameraControl:
+    gpio = new Electrical  # PB3, Betaflight camera OSD joystick
+    gnd = new Electrical
+    # TODO: Simple solder pad breakout
+
+module SBUSInverter:
+    vdd = new Electrical   # 3.3V
+    gnd = new Electrical
+    sbus_in = new Electrical   # From SBUS receiver
+    uart_rx = new Electrical   # To UART1_RX (PA10)
+    # TODO: 2N7002 N-FET inverter circuit
+    # TODO: 1kΩ gate resistor, 10kΩ pullup on drain
+    # TODO: Solder bridge for SBUS vs direct (CRSF/ELRS) selection

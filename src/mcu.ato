@@ -1,0 +1,83 @@
+# STM32F405RGT6 MCU with support circuits
+# See specs/mcu-core.md for full requirements
+
+module MCU_F405:
+    # Power pins
+    vdd = new Electrical
+    vdda = new Electrical
+    gnd = new Electrical
+
+    # All GPIO pins exposed as interfaces for top-level wiring
+    # SPI1 (IMU)
+    pa5 = new Electrical  # SPI1_SCK
+    pa6 = new Electrical  # SPI1_MISO
+    pa7 = new Electrical  # SPI1_MOSI
+    pc4 = new Electrical  # GYRO_1_CS
+    pc5 = new Electrical  # GYRO_1_EXTI
+
+    # SPI2 (OSD)
+    pb12 = new Electrical  # MAX7456_CS
+    pb13 = new Electrical  # SPI2_SCK
+    pb14 = new Electrical  # SPI2_MISO
+    pb15 = new Electrical  # SPI2_MOSI
+
+    # SPI3 (Flash)
+    pb5 = new Electrical   # SPI3_MOSI
+    pb7 = new Electrical   # FLASH_CS
+    pc10 = new Electrical  # SPI3_SCK
+    pc11 = new Electrical  # SPI3_MISO
+
+    # I2C1 (Baro + Mag)
+    pb8 = new Electrical   # I2C1_SCL
+    pb9 = new Electrical   # I2C1_SDA
+
+    # UARTs
+    pa9 = new Electrical   # UART1_TX
+    pa10 = new Electrical  # UART1_RX
+    pa2 = new Electrical   # UART2_TX
+    pa3 = new Electrical   # UART2_RX
+    pb10 = new Electrical  # UART3_TX
+    pb11 = new Electrical  # UART3_RX
+    pa0 = new Electrical   # UART4_TX
+    pa1 = new Electrical   # UART4_RX
+    pc12 = new Electrical  # UART5_TX
+    pd2 = new Electrical   # UART5_RX (note: PD2 is the only Port D pin used)
+
+    # Motors (TIM8)
+    pc6 = new Electrical   # MOTOR1
+    pc7 = new Electrical   # MOTOR2
+    pc8 = new Electrical   # MOTOR3
+    pc9 = new Electrical   # MOTOR4
+
+    # USB
+    pa11 = new Electrical  # USB_DM
+    pa12 = new Electrical  # USB_DP
+
+    # ADC
+    pc0 = new Electrical   # ADC_RSSI
+    pc1 = new Electrical   # ADC_CURR
+    pc2 = new Electrical   # ADC_VBAT
+
+    # Misc
+    pb0 = new Electrical   # LED0
+    pb1 = new Electrical   # BEEPER
+    pb2 = new Electrical   # PINIO1
+    pb3 = new Electrical   # CAMERA_CONTROL
+    pb6 = new Electrical   # LED_STRIP
+
+    # Debug
+    pa13 = new Electrical  # SWDIO
+    pa14 = new Electrical  # SWCLK
+
+    # Spare
+    pa4 = new Electrical   # Servo/detonator (DAC)
+
+    # TODO: Implement STM32F405RGT6 component with LQFP-64 footprint
+    # TODO: Implement 8MHz HSE crystal oscillator circuit (PH0/PH1)
+    # TODO: Implement VCAP1/VCAP2 caps (2.2µF each)
+    # TODO: Implement per-VDD decoupling (100nF each)
+    # TODO: Implement VDDA filtering (1µF + 100nF)
+    # TODO: Implement BOOT0 button circuit (10kΩ pulldown + button to 3.3V)
+    # TODO: Implement NRST button circuit (10kΩ pullup + 100nF + button to GND)
+    # TODO: Implement PB2/BOOT1 10kΩ pulldown
+    # TODO: Implement SWD test pads (PA13, PA14, GND, 3.3V, NRST)

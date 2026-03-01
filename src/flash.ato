@@ -1,0 +1,13 @@
+# W25Q128JVSIQ Flash on SPI3 — See specs/flash-w25q128.md
+
+module Flash_W25Q128:
+    vcc = new Electrical
+    gnd = new Electrical
+    spi_sck = new Electrical
+    spi_miso = new Electrical
+    spi_mosi = new Electrical
+    cs = new Electrical
+
+    # TODO: Implement W25Q128 component with SOIC-8 footprint
+    # TODO: VCC 100nF decoupling
+    # TODO: /WP and /HOLD tied to VCC

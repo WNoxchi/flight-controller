@@ -1,0 +1,100 @@
+# TF405 Research Flight Controller
+# Top-level module composing all subsystems
+#
+# Architecture:
+#   VBAT → 5V Buck (MP1584EN) → 3.3V LDO (AMS1117) → MCU + peripherals
+#   MCU (STM32F405RGT6) connects to:
+#     SPI1 → BMI270 IMU
+#     SPI2 → AT7456E OSD
+#     SPI3 → W25Q128 Flash
+#     I2C1 → BMP390 Baro (+ external mag via GPS connector)
+#     UARTs → RX, GPS, ESC telemetry, VTX SmartAudio, spare
+#     TIM8  → 4x motor DShot outputs
+#     USB   → USB-C for DFU/configurator
+#     ADC   → VBAT sense, current sense, RSSI
+
+from "src/power.ato" import PowerSystem
+from "src/mcu.ato" import MCU_F405
+from "src/imu.ato" import IMU_BMI270
+from "src/osd.ato" import OSD_AT7456E
+from "src/flash.ato" import Flash_W25Q128
+from "src/baro.ato" import Baro_BMP390
+from "src/usb.ato" import USB_C_Interface
+from "src/connectors.ato" import ESCConnector, RXConnector, GPSConnector, SpareConnector, CameraConnector, VTXConnector
+from "src/misc.ato" import StatusLED, Beeper, LEDStrip, CameraControl, SBUSInverter
+
+module TF405:
+    # ── Power ──
+    power = new PowerSystem
+    # VBAT input from ESC connector
+    # power.vbat ~ esc_conn.vbat  (wired via connector)
+
+    # ── MCU ──
+    mcu = new MCU_F405
+    mcu.vdd ~ power.rail_3v3
+    mcu.vdda ~ power.rail_3v3  # filtered separately inside MCU module
+
+    # ── IMU (SPI1) ──
+    imu = new IMU_BMI270
+    imu.vdd ~ power.rail_3v3
+    imu.spi_sck ~ mcu.pa5
+    imu.spi_miso ~ mcu.pa6
+    imu.spi_mosi ~ mcu.pa7
+    imu.cs ~ mcu.pc4
+    imu.exti ~ mcu.pc5
+
+    # ── OSD (SPI2) ──
+    osd = new OSD_AT7456E
+    osd.dvdd ~ power.rail_3v3
+    osd.avdd ~ power.rail_3v3  # through ferrite bead inside OSD module
+    osd.spi_sck ~ mcu.pb13
+    osd.spi_miso ~ mcu.pb14
+    osd.spi_mosi ~ mcu.pb15
+    osd.cs ~ mcu.pb12
+
+    # ── Blackbox Flash (SPI3) ──
+    flash = new Flash_W25Q128
+    flash.vcc ~ power.rail_3v3
+    flash.spi_sck ~ mcu.pc10
+    flash.spi_miso ~ mcu.pc11
+    flash.spi_mosi ~ mcu.pb5
+    flash.cs ~ mcu.pb7
+
+    # ── Barometer (I2C1) ──
+    baro = new Baro_BMP390
+    baro.vdd ~ power.rail_3v3
+    baro.scl ~ mcu.pb8
+    baro.sda ~ mcu.pb9
+
+    # ── USB-C ──
+    usb = new USB_C_Interface
+    usb.rail_5v ~ power.rail_5v
+    usb.dm ~ mcu.pa11
+    usb.dp ~ mcu.pa12
+
+    # ── Connectors ──
+    esc_conn = new ESCConnector
+    rx_conn = new RXConnector
+    gps_conn = new GPSConnector
+    spare_conn = new SpareConnector
+    cam_conn = new CameraConnector
+    vtx_conn = new VTXConnector
+
+    # ── Misc ──
+    led = new StatusLED
+    led.gpio ~ mcu.pb0
+    led.vdd ~ power.rail_3v3
+
+    beeper = new Beeper
+    beeper.gpio ~ mcu.pb1
+
+    led_strip = new LEDStrip
+    led_strip.data ~ mcu.pb6
+    led_strip.vdd ~ power.rail_5v
+
+    cam_ctrl = new CameraControl
+    cam_ctrl.gpio ~ mcu.pb3
+
+    sbus_inv = new SBUSInverter
+    sbus_inv.vdd ~ power.rail_3v3
+    # sbus_inv.uart_rx ~ mcu.pa10  (UART1_RX, shared with RX connector)

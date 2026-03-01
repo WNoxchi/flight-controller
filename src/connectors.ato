@@ -1,0 +1,49 @@
+# Connectors — All JST-SH 1.0mm pitch
+# See specs/motors-esc.md, specs/uarts-receiver.md, specs/video-vtx-misc.md
+
+module ESCConnector:
+    # 8-pin JST-SH: GND, VBAT, CURR, M1-M4, TELEM
+    gnd = new Electrical
+    vbat = new Electrical
+    curr = new Electrical
+    m1 = new Electrical
+    m2 = new Electrical
+    m3 = new Electrical
+    m4 = new Electrical
+    telem = new Electrical
+
+module RXConnector:
+    # 4-pin JST-SH: GND, 5V, RX1, TX1
+    gnd = new Electrical
+    v5 = new Electrical
+    rx = new Electrical
+    tx = new Electrical
+
+module GPSConnector:
+    # 6-pin JST-SH: GND, 5V, TX2, RX2, SCL, SDA
+    gnd = new Electrical
+    v5 = new Electrical
+    tx = new Electrical
+    rx = new Electrical
+    scl = new Electrical
+    sda = new Electrical
+
+module SpareConnector:
+    # 6-pin JST-SH: GND, 5V, TX3, RX3, 5V, GND
+    gnd = new Electrical
+    v5 = new Electrical
+    tx = new Electrical
+    rx = new Electrical
+
+module CameraConnector:
+    # 3-pin JST-SH: GND, 5V, VOUT
+    gnd = new Electrical
+    v5 = new Electrical
+    video_out = new Electrical
+
+module VTXConnector:
+    # 4-pin JST-SH: GND, VBAT_SW, VIDEO, SA
+    gnd = new Electrical
+    vbat_sw = new Electrical
+    video_in = new Electrical
+    smart_audio = new Electrical

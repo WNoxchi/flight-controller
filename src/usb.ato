@@ -1,0 +1,16 @@
+# USB-C Interface — See specs/usb-c.md
+
+module USB_C_Interface:
+    rail_5v = new Electrical
+    gnd = new Electrical
+    dm = new Electrical
+    dp = new Electrical
+    vbus = new Electrical
+
+    # TODO: Implement USB-C connector (GCT USB4085-GF-A)
+    # TODO: 2x 5.1kΩ on CC1/CC2 to GND
+    # TODO: ESD protection (USBLC6-2SC6) on D+/D-
+    # TODO: 22Ω series resistors on D+/D-
+    # TODO: Schottky diode (SS34) from VBUS to 5V rail
+    # TODO: 4.7µF on VBUS after Schottky
+    # TODO: Shield to GND via 1MΩ ∥ 4.7nF

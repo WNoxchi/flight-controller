@@ -1,0 +1,17 @@
+# AT7456E OSD on SPI2 — See specs/osd-at7456e.md
+
+module OSD_AT7456E:
+    dvdd = new Electrical
+    avdd = new Electrical
+    gnd = new Electrical
+    spi_sck = new Electrical
+    spi_miso = new Electrical
+    spi_mosi = new Electrical
+    cs = new Electrical
+    video_in = new Electrical
+    video_out = new Electrical
+
+    # TODO: Implement AT7456E component with TQFP-28 footprint
+    # TODO: DVDD 100nF decoupling
+    # TODO: AVDD ferrite bead + 100nF (isolated analog)
+    # TODO: Video path connections (VIN pin 17, VOUT pin 22)
