@@ -189,6 +189,7 @@ module USB_C_Interface:
 
     c_vbus = new Capacitor
     c_vbus.value = 4.7uF +/- 10%
+    c_vbus.footprint = "Capacitor_SMD:C_0805_2012Metric"
     vbus_raw ~ c_vbus.p1; c_vbus.p2 ~ gnd
 
     # Route raw VBUS out to power system for power OR circuit

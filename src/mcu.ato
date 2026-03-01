@@ -123,6 +123,7 @@ component Capacitor:
     signal p1 ~ pin 1
     signal p2 ~ pin 2
     designator_prefix = "C"
+    footprint = "Capacitor_SMD:C_0402_1005Metric"
     mpn = "generic_capacitor"
     value: capacitance
 
@@ -130,6 +131,7 @@ component Resistor:
     signal p1 ~ pin 1
     signal p2 ~ pin 2
     designator_prefix = "R"
+    footprint = "Resistor_SMD:R_0402_1005Metric"
     mpn = "generic_resistor"
     value: resistance
 
@@ -247,10 +249,12 @@ module MCU_F405:
     # Required by STM32F405 datasheet: 2.2uF ceramic, placed close to pins
     c_vcap1 = new Capacitor
     c_vcap1.value = 2.2uF +/- 5%
+    c_vcap1.footprint = "Capacitor_SMD:C_0603_1608Metric"
     mcu.vcap1 ~ c_vcap1.p1; c_vcap1.p2 ~ gnd
 
     c_vcap2 = new Capacitor
     c_vcap2.value = 2.2uF +/- 5%
+    c_vcap2.footprint = "Capacitor_SMD:C_0603_1608Metric"
     mcu.vcap2 ~ c_vcap2.p1; c_vcap2.p2 ~ gnd
 
     # ── Per-VDD decoupling (100nF on each VDD pin, as close as possible) ──

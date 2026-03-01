@@ -99,15 +99,17 @@ component Inductor_4u7:
     signal p2 ~ pin 2
 
 # ────────────────────────────────────────────────
-# Electrolytic capacitor — generic, for LOW-VOLTAGE rails only (5V, 3.3V)
-# WARNING: Do NOT use on VBAT rail — solver cannot constrain voltage rating
+# 22uF/10V tantalum, EIA-3528 (Kemet Case B)
+# For 3.3V rail bulk decoupling and AMS1117 output stability.
+# Tantalum provides necessary ESR (0.1-0.5ohm) for AMS1117 loop compensation —
+# low-ESR MLCC can cause oscillation on this LDO.
 # ────────────────────────────────────────────────
-component ElectrolyticCap:
+component Cap_22uF_10V_Tant:
+    footprint = "Capacitor_Tantalum_SMD:CP_EIA-3528-21_Kemet-B"
+    mpn = "TAJB226K010RNJ"
+    designator_prefix = "C"
     signal p1 ~ pin 1  # positive
     signal p2 ~ pin 2  # negative (GND)
-    designator_prefix = "C"
-    mpn = "generic_capacitor"
-    value: capacitance
 
 # ────────────────────────────────────────────────
 # Voltage-rated caps for VBAT rail (up to 25.2V on 6S LiPo)
@@ -217,6 +219,7 @@ module PowerSystem:
     # Output decoupling: 22uF/16V ceramic close to output
     c_buck_out = new Capacitor
     c_buck_out.value = 22uF +/- 20%
+    c_buck_out.footprint = "Capacitor_SMD:C_1206_3216Metric"
     rail_5v ~ c_buck_out.p1; c_buck_out.p2 ~ gnd
 
     # Feedback resistor divider: sets Vout = 0.8V * (1 + R_fb_top/R_fb_bot)
@@ -259,13 +262,13 @@ module PowerSystem:
     # Input cap: 10uF ceramic close to LDO input pin
     c_ldo_in = new Capacitor
     c_ldo_in.value = 10uF +/- 20%
+    c_ldo_in.footprint = "Capacitor_SMD:C_0805_2012Metric"
     ldo.vin ~ c_ldo_in.p1; c_ldo_in.p2 ~ gnd
 
     # Output cap: 22uF tantalum close to LDO output (REQUIRED for stability)
     # AMS1117 requires output cap with ESR in 0.1-0.5 ohm range (tantalum ideal)
     # Low-ESR ceramic MLCCs can cause oscillation on AMS1117
-    c_ldo_out = new ElectrolyticCap
-    c_ldo_out.value = 22uF +/- 20%
+    c_ldo_out = new Cap_22uF_10V_Tant
     ldo.vout ~ c_ldo_out.p1; c_ldo_out.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
@@ -339,6 +342,7 @@ module PowerSystem:
     # Additional decoupling specifically for USB power path
     c_usb_vbus = new Capacitor
     c_usb_vbus.value = 4.7uF +/- 10%
+    c_usb_vbus.footprint = "Capacitor_SMD:C_0805_2012Metric"
     d_usb.cathode ~ c_usb_vbus.p1; c_usb_vbus.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
@@ -347,12 +351,11 @@ module PowerSystem:
     # 3.3V rail: 22uF tantalum near LDO output (additional bulk storage)
     # ═══════════════════════════════════════════════
 
-    c_5v_bulk = new ElectrolyticCap
-    c_5v_bulk.value = 100uF +/- 20%
+    # Reuse Cap_100uF_35V — 35V rating is overkill for 5V but same pinned footprint
+    c_5v_bulk = new Cap_100uF_35V
     rail_5v ~ c_5v_bulk.p1; c_5v_bulk.p2 ~ gnd
 
-    c_3v3_bulk = new ElectrolyticCap
-    c_3v3_bulk.value = 22uF +/- 20%
+    c_3v3_bulk = new Cap_22uF_10V_Tant
     rail_3v3 ~ c_3v3_bulk.p1; c_3v3_bulk.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
