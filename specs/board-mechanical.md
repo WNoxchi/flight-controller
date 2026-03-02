@@ -1,11 +1,11 @@
 # Spec: Physical Board Constraints and Mechanical Drawing
 
 ## Overview
-36mm x 36mm flight controller PCB with standard 30.5mm M3 mounting pattern, designed to
+37mm x 37mm flight controller PCB with standard 30.5mm M3 mounting pattern, designed to
 fit standard whoop/mini quad FC mounting stacks. All dimensions in millimeters unless noted.
 
 ## PCB Outline
-- **Shape**: Square, 36.0 mm x 36.0 mm
+- **Shape**: Square, 37.0 mm x 37.0 mm
 - **Corner radius**: 1.0 mm (rounded corners to prevent snag/stress concentration)
 - **Board thickness**: 1.6 mm (standard 4-layer, per pcb-stackup.md)
 - **PCB material**: FR4
@@ -13,13 +13,13 @@ fit standard whoop/mini quad FC mounting stacks. All dimensions in millimeters u
 ## Mounting Holes
 
 ### Pattern
-- **Spacing**: 30.5 mm x 30.5 mm center-to-center (standard FPV FC mount pattern)
+- **Spacing**: 30.0 mm x 30.0 mm center-to-center (matches Brave F7 reference)
 - **Hole diameter**: 3.2 mm (M3 clearance with 0.1 mm tolerance margin)
-- **Hole positions** (origin = board center at 18.0, 18.0):
-  - Top-left:     ( 2.75,  2.75)  — 2.75 mm from each board edge
-  - Top-right:    (33.25,  2.75)
-  - Bottom-left:  ( 2.75, 33.25)
-  - Bottom-right: (33.25, 33.25)
+- **Hole positions** (origin = board center at 18.5, 18.5):
+  - Top-left:     ( 3.5,   3.5)   — 3.5 mm from each board edge
+  - Top-right:    (33.5,   3.5)
+  - Bottom-left:  ( 3.5,  33.5)
+  - Bottom-right: (33.5,  33.5)
 - **Copper clearance**: 0.5 mm annular keep-out around each hole (no copper within 2.1 mm
   of hole center) to prevent shorts from M3 hardware and vibration damper grommets
 - **Solder mask**: Pull back solder mask 0.15 mm from hole edge (expose FR4 ring)
@@ -187,15 +187,15 @@ Recommended edge assignment based on typical quad frame geometry:
 ## Mechanical Drawing Summary
 
 ```
-    36.0 mm
+    37.0 mm
   ├──────────────────────────┤
 
   ┌──────────────────────────┐ ─┬─
   │ ●                     ●  │  │
   │  ╲ R=1.0              ╱  │  │
   │                          │  │
-  │   ⊕               ⊕     │  │  36.0 mm
-  │   2.75    30.5    33.25  │  │
+  │   ⊕               ⊕     │  │  37.0 mm
+  │   3.50    30.0    33.50  │  │
   │                          │  │
   │        [  MCU  ]         │  │
   │                          │  │
@@ -207,8 +207,8 @@ Recommended edge assignment based on typical quad frame geometry:
   ⊕ = M3 mounting hole (3.2mm dia)
   ● = 1.0mm corner radius
   Origin (0,0) = bottom-left corner
-  Mounting hole centers at (2.75, 2.75), (33.25, 2.75),
-                           (2.75, 33.25), (33.25, 33.25)
+  Mounting hole centers at (3.5, 3.5), (33.5, 3.5),
+                           (3.5, 33.5), (33.5, 33.5)
 ```
 
 ## DXF Export Specification
@@ -220,26 +220,26 @@ For KiCad Edge.Cuts layer, the board outline consists of:
 ### Edge.Cuts Coordinates (counter-clockwise from bottom-left)
 | Segment | Start (x, y)  | End (x, y)    | Type      |
 |---------|---------------|----------------|-----------|
-| Bottom  | (1.0, 0.0)    | (35.0, 0.0)   | Line      |
-| Arc BR  | (35.0, 0.0)   | (36.0, 1.0)   | Arc R=1.0 |
-| Right   | (36.0, 1.0)   | (36.0, 35.0)  | Line      |
-| Arc TR  | (36.0, 35.0)  | (35.0, 36.0)  | Arc R=1.0 |
-| Top     | (35.0, 36.0)  | (1.0, 36.0)   | Line      |
-| Arc TL  | (1.0, 36.0)   | (0.0, 35.0)   | Arc R=1.0 |
-| Left    | (0.0, 35.0)   | (0.0, 1.0)    | Line      |
+| Bottom  | (1.0, 0.0)    | (36.0, 0.0)   | Line      |
+| Arc BR  | (36.0, 0.0)   | (37.0, 1.0)   | Arc R=1.0 |
+| Right   | (37.0, 1.0)   | (37.0, 36.0)  | Line      |
+| Arc TR  | (37.0, 36.0)  | (36.0, 37.0)  | Arc R=1.0 |
+| Top     | (36.0, 37.0)  | (1.0, 37.0)   | Line      |
+| Arc TL  | (1.0, 37.0)   | (0.0, 36.0)   | Arc R=1.0 |
+| Left    | (0.0, 36.0)   | (0.0, 1.0)    | Line      |
 | Arc BL  | (0.0, 1.0)    | (1.0, 0.0)    | Arc R=1.0 |
 
 ### Mounting Hole Coordinates (origin = bottom-left corner)
 | Hole | Center (x, y) | Diameter | Copper Keep-Out |
 |------|---------------|----------|-----------------|
-| BL   | (2.75, 2.75)  | 3.2 mm   | 7.0 mm dia      |
-| BR   | (33.25, 2.75) | 3.2 mm   | 7.0 mm dia      |
-| TL   | (2.75, 33.25) | 3.2 mm   | 7.0 mm dia      |
-| TR   | (33.25, 33.25)| 3.2 mm   | 7.0 mm dia      |
+| BL   | (3.5, 3.5)    | 3.2 mm   | 7.0 mm dia      |
+| BR   | (33.5, 3.5)   | 3.2 mm   | 7.0 mm dia      |
+| TL   | (3.5, 33.5)   | 3.2 mm   | 7.0 mm dia      |
+| TR   | (33.5, 33.5)  | 3.2 mm   | 7.0 mm dia      |
 
 ## Weight Budget Relevance
 The 36x36mm 4-layer 1.6mm FR4 PCB (bare) weighs approximately:
-- Board area: 36 x 36 = 1,296 mm² = 12.96 cm²
+- Board area: 37 x 37 = 1,296 mm² = 12.96 cm²
 - FR4 density: ~1.85 g/cm³
 - Board volume: 12.96 cm² x 0.16 cm = 2.07 cm³
 - Bare board weight: ~3.8 g

@@ -10,7 +10,7 @@ The Brave F7 is a reference, not a clone target. Key intentional differences:
 - **MCU**: Brave F7 uses STM32F722RET6; this design uses STM32F405RGT6
 - **Input voltage**: Brave F7 supports 3-8S (up to 33.6V); this design targets 2-6S (up to 25.2V)
 - **BEC**: Brave F7 has 10V/2A + 5V/3A dual BEC; this design matches with 10V + 5V/3A dual BEC (both MP1584EN, 28V max input)
-- **Board size**: Brave F7 is 37x37mm / 30x30mm mounting; this design is 36x36mm / 30.5x30.5mm
+- **Board size**: Brave F7 is 37x37mm / 30x30mm mounting; this design matches at 37x37mm / 30x30mm
 - **Flash**: Brave F7 has 16Mbit; this design has 128Mbit (W25Q128)
 - **UARTs**: Brave F7 has 6; this design has 5 (F405 limitation)
 

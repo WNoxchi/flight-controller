@@ -7,17 +7,17 @@
 
 | Parameter         | Value                                 |
 |-------------------|---------------------------------------|
-| Dimensions        | 36.0 mm x 36.0 mm                    |
+| Dimensions        | 37.0 mm x 37.0 mm                    |
 | Layer count       | 4 (per pcb-stackup.md)               |
 | Thickness         | 1.6 mm                                |
 | Material          | FR4 (density ~1.85 g/cm³)            |
 | Copper weight     | 1 oz outer / 0.5 oz inner            |
 | Mounting holes    | 4x 3.2 mm (removes ~32 mm² material) |
 | Corner radii      | 1.0 mm (removes ~0.9 mm² per corner) |
-| Board area        | 36 x 36 = 1,296 mm² (≈12.96 cm²)    |
-| Effective area    | ~1,260 mm² (after holes + corners)    |
-| Board volume      | 12.60 cm² x 0.16 cm = 2.02 cm³       |
-| **Bare PCB mass** | **~3.7 g**                            |
+| Board area        | 37 x 37 = 1,369 mm² (≈13.69 cm²)    |
+| Effective area    | ~1,333 mm² (after holes + corners)    |
+| Board volume      | 13.33 cm² x 0.16 cm = 2.13 cm³       |
+| **Bare PCB mass** | **~3.9 g**                            |
 
 *Note: FR4 with copper layers weighs slightly more than pure FR4. The 3.7 g estimate accounts
 for 4-layer copper (avg ~35 µm equivalent) and solder mask/silkscreen. JLCPCB 4-layer
@@ -166,7 +166,7 @@ complete weight budget.
 
 | Category | Count | Mass (g) |
 |----------|-------|----------|
-| Bare PCB (36x36mm, 4-layer, 1.6mm FR4) | 1 | 3.70 |
+| Bare PCB (37x37mm, 4-layer, 1.6mm FR4) | 1 | 3.90 |
 | Integrated circuits | 8 | 0.83 |
 | Discrete semiconductors | 7 | 0.21 |
 | Capacitors | 36 | 0.43 |
@@ -176,7 +176,7 @@ complete weight budget.
 | Connectors (USB-C + 6x JST-SH) | 7 | 1.60 |
 | Electromechanical (button + buzzer) | 2 | 1.03 |
 | Solder paste (estimate) | — | 0.10 |
-| **Total** | **91** | **7.43** |
+| **Total** | **91** | **7.63** |
 
 *Note: The atopile designator map contains 85 components (J1 + 84 SMD parts). The 6 JST-SH
 connectors are logical modules in the netlist; their physical parts will be added during
@@ -189,8 +189,8 @@ layout. Solder paste mass is estimated for this board density (~200 pads, 150 µ
 | Metric | Value |
 |--------|-------|
 | Target mass | ≤ 8.0 g |
-| Estimated mass | **7.4 g** |
-| **Margin** | **−0.6 g (7% under target)** |
+| Estimated mass | **7.6 g** |
+| **Margin** | **−0.4 g (5% under target)** |
 | Reference (Brave F7) | 8.0 g |
 
 ### Assessment
@@ -210,7 +210,7 @@ exact SMT vs. through-hole variants chosen during layout).
 
 | Rank | Component | Mass (g) | % of Total |
 |------|-----------|----------|------------|
-| 1 | Bare PCB | 3.70 | 48.4% |
+| 1 | Bare PCB | 3.90 | 51.1% |
 | 2 | MLT-8530 buzzer | 1.00 | 13.1% |
 | 3 | USB4085-GF-A USB-C connector | 0.98 | 12.8% |
 | 4 | CDRH6D28 4.7 µH inductor | 0.44 | 5.8% |

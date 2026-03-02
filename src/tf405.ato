@@ -28,7 +28,7 @@ module TF405:
     # Defined in ato so they persist through ato build (not stripped from PCB).
     # Non-plated, no electrical connection — matches Brave F7 reference.
     # Position in KiCad layout:
-    #   H1 (2.75, 2.75), H2 (33.25, 2.75), H3 (2.75, 33.25), H4 (33.25, 33.25)
+    #   H1 (103.5, 103.5), H2 (133.5, 103.5), H3 (103.5, 133.5), H4 (133.5, 133.5)
     h1 = new MountingHole_M3
     h2 = new MountingHole_M3
     h3 = new MountingHole_M3
