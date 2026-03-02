@@ -15,6 +15,7 @@
 # - SS34 Schottky diode: USB power OR circuit prevents backfeed from BEC to USB host
 
 from "mcu.ato" import Capacitor, Resistor
+from "misc.ato" import NFET_2N7002
 
 # ────────────────────────────────────────────────
 # MP1584EN Step-Down (Buck) Converter — SOIC-8
@@ -150,8 +151,8 @@ module PowerSystem:
     signal adc_vbat  # Battery voltage sense output (to PC2, ~2.29V at 6S max)
     signal adc_curr  # Current sense filtered output (to PC1)
 
-    # ── Switchable output ──
-    signal vbat_sw   # PINIO1 switched VBAT output (to VTX connector)
+    # ── 10V VTX power (switched) ──
+    signal vtx_10v   # PINIO1 switched 10V output (to VTX connector)
     signal pinio1    # PINIO1 gate control input (from MCU PB2)
 
     # ── USB power OR input ──
@@ -249,6 +250,73 @@ module PowerSystem:
     buck.comp ~ r_comp.p1; r_comp.p2 ~ c_comp.p1; c_comp.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
+    # SECTION 2b: 10V VTX BEC (MP1584EN)
+    # Input: VBAT (7.4-25.2V), Output: 10V/2A (max 3A)
+    # Dedicated regulator for VTX power — matches Brave F7 reference
+    # EN tied to VIN = always-on; PINIO1 P-FET switches output to connector
+    # Feedback divider: 115k/10k for 10V output
+    #   Vout = 0.8V * (1 + 115k/10k) = 0.8 * 12.5 = 10.0V
+    # ═══════════════════════════════════════════════
+
+    # Internal 10V rail (unswitched, between BEC output and PINIO1 P-FET)
+    signal rail_10v
+
+    buck_10v = new MP1584EN
+
+    # Input power connections
+    buck_10v.vin ~ vbat
+    buck_10v.gnd ~ gnd
+
+    # Enable: tie to VIN for always-on operation
+    buck_10v.en ~ vbat
+
+    # Input decoupling: 22uF/35V ceramic close to VIN pin
+    c_buck_10v_in = new Cap_22uF_35V
+    buck_10v.vin ~ c_buck_10v_in.p1; c_buck_10v_in.p2 ~ gnd
+
+    # Bootstrap capacitor: 100nF between BST and SW pins
+    c_buck_10v_bst = new Capacitor
+    c_buck_10v_bst.value = 100nF +/- 10%
+    buck_10v.bst ~ c_buck_10v_bst.p1; c_buck_10v_bst.p2 ~ buck_10v.sw
+
+    # Output inductor: 4.7uH/3A shielded
+    inductor_10v = new Inductor_4u7
+    buck_10v.sw ~ inductor_10v.p1; inductor_10v.p2 ~ rail_10v
+
+    # Schottky catch diode: anode to GND, cathode to SW node
+    d_buck_10v = new Schottky_SS34
+    d_buck_10v.anode ~ gnd
+    d_buck_10v.cathode ~ buck_10v.sw
+
+    # Output decoupling: 22uF ceramic (needs ≥16V rating for 10V output)
+    c_buck_10v_out = new Capacitor
+    c_buck_10v_out.value = 22uF +/- 20%
+    c_buck_10v_out.footprint = "Capacitor_SMD:C_1206_3216Metric"
+    rail_10v ~ c_buck_10v_out.p1; c_buck_10v_out.p2 ~ gnd
+
+    # Feedback resistor divider: 115k/10k for 10V output
+    # Vout = 0.8V * (1 + 115k/10k) = 0.8 * 12.5 = 10.0V
+    r_fb_10v_top = new Resistor
+    r_fb_10v_top.value = 115kohm +/- 1%
+    rail_10v ~ r_fb_10v_top.p1; r_fb_10v_top.p2 ~ buck_10v.fb
+
+    r_fb_10v_bot = new Resistor
+    r_fb_10v_bot.value = 10kohm +/- 1%
+    buck_10v.fb ~ r_fb_10v_bot.p1; r_fb_10v_bot.p2 ~ gnd
+
+    # Frequency set resistor: 100kohm (~300kHz switching)
+    r_freq_10v = new Resistor
+    r_freq_10v.value = 100kohm +/- 1%
+    buck_10v.freq ~ r_freq_10v.p1; r_freq_10v.p2 ~ gnd
+
+    # Compensation network: series RC for loop stability
+    r_comp_10v = new Resistor
+    r_comp_10v.value = 100kohm +/- 1%
+    c_comp_10v = new Capacitor
+    c_comp_10v.value = 150pF +/- 10%
+    buck_10v.comp ~ r_comp_10v.p1; r_comp_10v.p2 ~ c_comp_10v.p1; c_comp_10v.p2 ~ gnd
+
+    # ═══════════════════════════════════════════════
     # SECTION 3: 3.3V LDO (AMS1117-3.3)
     # Input: 5V rail, Output: 3.3V
     # Power dissipation: (5.0-3.3) * 0.2A = 0.34W — trivial for SOT-223
@@ -308,22 +376,40 @@ module PowerSystem:
     adc_curr ~ c_curr_filter.p1; c_curr_filter.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
-    # SECTION 6: PINIO1 P-FET Switch (VTX power control)
-    # AO3401A P-FET: Source=VBAT, Drain=VBAT_SW (to VTX connector)
-    # MCU PB2 drives gate through 10kohm resistor
-    # PB2 LOW = Vgs negative = FET ON (VBAT passes to VTX)
-    # PB2 HIGH = Vgs ~0 = FET OFF (VTX powered down / pit mode)
-    # Note: PB2 also has 10k pulldown in MCU module (BOOT1 requirement),
-    # which keeps the FET ON by default — VTX powered at startup
+    # SECTION 6: PINIO1 VTX Power Switch (N-FET + P-FET level-shifted)
+    # Controls 10V BEC output to VTX connector via PB2 (PINIO1)
+    #
+    # N-FET (2N7002) level shifter required because PB2 (3.3V max) cannot
+    # directly drive P-FET gate to the 10V source voltage for reliable turn-off.
+    # The N-FET inverts the signal and provides full rail-to-rail gate drive.
+    #
+    # PB2 HIGH → N-FET ON → P-FET gate at GND → Vgs=-10V → P-FET ON → VTX powered
+    # PB2 LOW  → N-FET OFF → pullup pulls gate to 10V → Vgs=0 → P-FET OFF → VTX off
+    #
+    # Default state: PB2 has 10k pulldown (BOOT1) → VTX off at power-on.
+    # Betaflight firmware sets PB2 high at boot to enable VTX power.
+    # This is safer than always-on: prevents accidental high-power transmission.
     # ═══════════════════════════════════════════════
 
-    pinio_fet = new AO3401A
-    pinio_fet.source ~ vbat
-    pinio_fet.drain ~ vbat_sw
+    # N-FET level shifter: 2N7002 SOT-23
+    q_pinio_nfet = new NFET_2N7002
 
+    # Gate resistor: PB2 → 10kΩ → N-FET gate (limits inrush, ESD protection)
     r_pinio_gate = new Resistor
     r_pinio_gate.value = 10kohm +/- 1%
-    pinio1 ~ r_pinio_gate.p1; r_pinio_gate.p2 ~ pinio_fet.gate
+    pinio1 ~ r_pinio_gate.p1; r_pinio_gate.p2 ~ q_pinio_nfet.gate
+    q_pinio_nfet.source ~ gnd
+
+    # P-FET gate pullup: 100kΩ to rail_10v (holds P-FET OFF when N-FET is off)
+    r_pinio_pullup = new Resistor
+    r_pinio_pullup.value = 100kohm +/- 1%
+    q_pinio_nfet.drain ~ r_pinio_pullup.p1; r_pinio_pullup.p2 ~ rail_10v
+
+    # P-FET high-side switch: source=10V rail, drain=VTX connector output
+    pinio_fet = new AO3401A
+    pinio_fet.source ~ rail_10v
+    pinio_fet.drain ~ vtx_10v
+    q_pinio_nfet.drain ~ pinio_fet.gate
 
     # ═══════════════════════════════════════════════
     # SECTION 7: USB Power OR Circuit
@@ -371,5 +457,6 @@ module PowerSystem:
     assert r_curr_filter.value within 900ohm to 1.1kohm
     assert c_curr_filter.value within 80nF to 120nF
 
-    # PINIO1 gate resistor
+    # PINIO1 gate resistor and pullup
     assert r_pinio_gate.value within 9.9kohm to 10.1kohm
+    assert r_pinio_pullup.value within 90kohm to 110kohm

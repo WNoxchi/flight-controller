@@ -32,6 +32,17 @@ component JST_SH_4pin:
     signal p4 ~ pin 4
     signal mp ~ pin MP1
 
+component JST_SH_5pin:
+    footprint = "Connector_JST:JST_SH_SM05B-SRSS-TB_1x05-1MP_P1.00mm_Horizontal"
+    mpn = "SM05B-SRSS-TB"
+    designator_prefix = "J"
+    signal p1 ~ pin 1
+    signal p2 ~ pin 2
+    signal p3 ~ pin 3
+    signal p4 ~ pin 4
+    signal p5 ~ pin 5
+    signal mp ~ pin MP1
+
 component JST_SH_6pin:
     footprint = "Connector_JST:JST_SH_SM06B-SRSS-TB_1x06-1MP_P1.00mm_Horizontal"
     mpn = "SM06B-SRSS-TB"
@@ -143,30 +154,39 @@ module SpareConnector:
     conn.mp ~ gnd
 
 module CameraConnector:
-    # 3-pin JST-SH: GND(1), 5V(2), VOUT(3)
-    # Analog composite video output from camera to OSD input
+    # 5-pin JST-SH: GND(1), 5V(2), VI(3), CC(4), GND(5)
+    # Matches Brave F7 camera connector pinout
+    # VI = composite video from camera to OSD input
+    # CC = camera control (PB3, Betaflight OSD joystick emulation)
     signal gnd
     signal v5
     signal video_out
+    signal cam_ctrl
+    signal gnd_2
 
-    conn = new JST_SH_3pin
+    conn = new JST_SH_5pin
     conn.p1 ~ gnd
     conn.p2 ~ v5
     conn.p3 ~ video_out
+    conn.p4 ~ cam_ctrl
+    conn.p5 ~ gnd_2
     conn.mp ~ gnd
 
 module VTXConnector:
-    # 4-pin JST-SH: GND(1), VBAT_SW(2), VIDEO(3), SA(4)
-    # VBAT_SW is switchable battery voltage via PINIO1 P-FET
-    # SA is SmartAudio single-wire control protocol (UART5_TX)
+    # 5-pin JST-SH: 10V(1), GND(2), VIDEO(3), RX(4), TX(5)
+    # Matches Brave F7 AVTX connector layout
+    # 10V from dedicated BEC, switchable via PINIO1 (N-FET + P-FET in power.ato)
+    # Full UART5 for SmartAudio / IRC Tramp bidirectional VTX control
+    signal v10
     signal gnd
-    signal vbat_sw
     signal video_in
-    signal smart_audio
+    signal uart_rx
+    signal uart_tx
 
-    conn = new JST_SH_4pin
-    conn.p1 ~ gnd
-    conn.p2 ~ vbat_sw
+    conn = new JST_SH_5pin
+    conn.p1 ~ v10
+    conn.p2 ~ gnd
     conn.p3 ~ video_in
-    conn.p4 ~ smart_audio
+    conn.p4 ~ uart_rx
+    conn.p5 ~ uart_tx
     conn.mp ~ gnd

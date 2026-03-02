@@ -4,20 +4,23 @@
 Camera composite video → AT7456E VIN (pin 17) → OSD overlay → VOUT (pin 22) → VTX.
 Video does NOT pass through MCU.
 
-## Camera Connector (3-pin JST-SH 1.0)
+## Camera Connector (5-pin JST-SH 1.0)
 | Pin | Signal | Notes           |
 |-----|--------|-----------------|
 | 1   | GND    |                 |
 | 2   | 5V     | Camera power    |
-| 3   | VOUT   | Video out (post-OSD) |
+| 3   | VI     | Video in from camera |
+| 4   | CC     | Camera control (PB3, Betaflight OSD joystick) |
+| 5   | GND    | Extra ground    |
 
-## VTX Connector (4-pin JST-SH 1.0)
+## VTX Connector (5-pin JST-SH 1.0)
 | Pin | Signal  | Notes                              |
 |-----|---------|------------------------------------|
-| 1   | GND     |                                    |
-| 2   | VBAT_SW | Switchable VBAT via PINIO1         |
-| 3   | VIDEO   | Composite video in (from OSD out)  |
-| 4   | SA      | SmartAudio control (UART5_TX, PC12)|
+| 1   | 10V     | Regulated 10V BEC, switchable via PINIO1 |
+| 2   | GND     |                                    |
+| 3   | VIDEO   | Composite video out (from OSD out) |
+| 4   | RX      | UART5_RX (PD2) — VTX control RX   |
+| 5   | TX      | UART5_TX (PC12) — SmartAudio / VTX control TX |
 
 ## Misc GPIO
 - LED0: PB0 (status LED, active low)

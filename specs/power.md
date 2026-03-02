@@ -40,10 +40,19 @@
 - 4.7µF ceramic on VBUS after Schottky
 - FC runs on USB power alone for configuration
 
-## PINIO1 Switchable VBAT
-- PB2 drives AO3401A P-FET (SOT-23, Vds=-30V, Id=-4A)
-- 10kΩ gate resistor
-- Source: VBAT, Drain: VTX connector VBAT_SW
+## 10V VTX BEC (MP1584EN)
+- Input: VBAT (4.5-28V), Output: 10V/2A (max 3A)
+- Feedback divider: 115kΩ / 10kΩ → Vout = 0.8V × (1 + 11.5) = 10.0V
+- EN tied to VIN (always-on); PINIO1 P-FET switches output to connector
+- Dedicated power for analog VTX — matches Brave F7 reference
+- External components match 5V BEC: inductor, Schottky, caps, comp network
+
+## PINIO1 Switchable 10V (N-FET + P-FET level-shifted)
+- N-FET (2N7002): gate driven by PB2 via 10kΩ, source to GND
+- P-FET (AO3401A): source=10V rail, drain=VTX connector, gate driven by N-FET drain
+- 100kΩ pullup from P-FET gate to 10V rail (default OFF)
+- PB2 HIGH → N-FET ON → P-FET gate low → VTX powered
+- PB2 LOW (default, BOOT1 pulldown) → N-FET OFF → P-FET gate high → VTX off
 - Provides VTX pit mode control
 
 ## Decoupling Strategy

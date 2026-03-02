@@ -9,7 +9,7 @@ The Brave F7 is a reference, not a clone target. Key intentional differences:
 
 - **MCU**: Brave F7 uses STM32F722RET6; this design uses STM32F405RGT6
 - **Input voltage**: Brave F7 supports 3-8S (up to 33.6V); this design targets 2-6S (up to 25.2V)
-- **BEC**: Brave F7 has 10V/2A + 5V/3A dual BEC; this design has 5V/3A only (MP1584EN, 28V max input)
+- **BEC**: Brave F7 has 10V/2A + 5V/3A dual BEC; this design matches with 10V + 5V/3A dual BEC (both MP1584EN, 28V max input)
 - **Board size**: Brave F7 is 37x37mm / 30x30mm mounting; this design is 36x36mm / 30.5x30.5mm
 - **Flash**: Brave F7 has 16Mbit; this design has 128Mbit (W25Q128)
 - **UARTs**: Brave F7 has 6; this design has 5 (F405 limitation)
@@ -41,6 +41,45 @@ libraries. These need custom `.kicad_mod` files in `layouts/default/lib.pretty/`
 
 The design netlist compiles and passes all assertions — this only affects
 the final PCB file generation step.
+
+## REV-006: Camera connector upgraded to 5-pin (matches Brave F7)
+
+**Status**: Fixed
+
+Changed CameraConnector from 3-pin to 5-pin JST-SH (SM05B-SRSS-TB) to match
+the Brave F7 reference layout. New pinout: GND(1), 5V(2), VI(3), CC(4), GND(5).
+Camera Control (PB3) now routes through the connector instead of a standalone
+solder pad. The `CameraControl` passthrough module in misc.ato is no longer
+instantiated in TF405. Spec `video-vtx-misc.md` updated accordingly.
+
+## REV-005: Add footprints to all passive components
+
+**Status**: Fixed
+
+Generic `Resistor` and `Capacitor` components had no footprint assignments,
+causing 62 components to be excluded from the KiCad PCB. Added default 0402
+footprints, with overrides for larger caps (0603/0805/1206). Replaced generic
+`ElectrolyticCap` with pinned components (`Cap_100uF_35V`, `Cap_22uF_10V_Tant`).
+Board outline (36x36mm, 1mm corner radii) added to PCB file.
+
+## REV-007: Add 10V VTX BEC and upgrade VTX connector to 5-pin
+
+**Status**: Fixed
+
+Added dedicated 10V/2A BEC (second MP1584EN) for VTX power, matching the Brave F7
+reference design. Key changes:
+
+- **10V BEC**: MP1584EN with 115kΩ/10kΩ feedback divider (Vout = 10.0V). Same
+  passive component types as 5V BEC (inductor, Schottky, caps, comp network).
+  EN tied to VIN (always-on).
+- **PINIO1 redesign**: Added 2N7002 N-FET level shifter for proper P-FET gate
+  drive. 3.3V PB2 cannot directly switch a P-FET with 10V source — the N-FET
+  inverts and level-shifts the control signal. 100kΩ pullup holds P-FET OFF
+  by default (VTX off at power-on, safer than always-on).
+- **VTX connector**: Upgraded from 4-pin to 5-pin JST-SH (SM05B-SRSS-TB).
+  New pinout: 10V(1), GND(2), VIDEO(3), UART5_RX(4), UART5_TX(5).
+  Full UART5 enables bidirectional VTX control (IRC Tramp, SmartAudio v2.1).
+- **UART5_RX (PD2)**: Now connected to VTX connector pin 4. Previously unused.
 
 ## REV-002: ESC telemetry UART assignment — UART4 vs UART5
 

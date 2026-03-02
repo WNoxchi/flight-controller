@@ -21,7 +21,7 @@ from "flash.ato" import Flash_W25Q128
 from "baro.ato" import Baro_BMP390
 from "usb.ato" import USB_C_Interface
 from "connectors.ato" import ESCConnector, RXConnector, GPSConnector, SpareConnector, CameraConnector, VTXConnector
-from "misc.ato" import StatusLED, Beeper, LEDStrip, CameraControl, PA4Breakout, SBUSInverter
+from "misc.ato" import StatusLED, Beeper, LEDStrip, PA4Breakout, SBUSInverter
 
 module TF405:
     # ── Power ──
@@ -99,13 +99,17 @@ module TF405:
     # Camera power: 5V regulated from buck converter, ground to system GND
     cam_conn.v5 ~ power.rail_5v
     cam_conn.gnd ~ power.gnd
-    # VTX power: switchable VBAT via PINIO1 P-FET (AO3401A in power.ato)
+    cam_conn.gnd_2 ~ power.gnd
+    # Camera control: PB3 Betaflight OSD joystick emulation via connector pin 4
+    cam_conn.cam_ctrl ~ mcu.pb3
+    # VTX power: 10V regulated BEC, switchable via PINIO1 (N-FET + P-FET in power.ato)
     # Allows Betaflight to power-cycle the VTX for pit mode / channel changes
-    vtx_conn.vbat_sw ~ power.vbat_sw
+    vtx_conn.v10 ~ power.vtx_10v
     vtx_conn.gnd ~ power.gnd
-    # VTX SmartAudio: single-wire protocol on UART5_TX (PC12)
-    # Used by Betaflight to control VTX power level, channel, and band
-    vtx_conn.smart_audio ~ mcu.pc12     # UART5_TX → SmartAudio
+    # VTX control: full UART5 for SmartAudio / IRC Tramp bidirectional protocol
+    # TX used for SmartAudio; RX enables IRC Tramp and SmartAudio v2.1 responses
+    vtx_conn.uart_tx ~ mcu.pc12        # UART5_TX (PC12) → VTX control TX
+    vtx_conn.uart_rx ~ mcu.pd2         # UART5_RX (PD2) → VTX control RX
 
     # ── ESC Connector Wiring (TASK-009) ──
     # Motor outputs: TIM8 CH1-CH4 for DShot PWM (not bitbanged, DMA2 errata ES0206 §2.1.10)
@@ -138,9 +142,7 @@ module TF405:
     led_strip.vdd ~ power.rail_5v
     led_strip.gnd ~ power.gnd
 
-    cam_ctrl = new CameraControl
-    cam_ctrl.gpio ~ mcu.pb3
-    cam_ctrl.gnd ~ power.gnd
+    # Camera control now routed through camera connector pin 4 (see video path wiring above)
 
     # PA4 breakout: servo/detonator solder pad (DAC_OUT1 / TIM2_CH1)
     pa4_out = new PA4Breakout
