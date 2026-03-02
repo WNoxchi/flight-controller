@@ -62,6 +62,24 @@ footprints, with overrides for larger caps (0603/0805/1206). Replaced generic
 `ElectrolyticCap` with pinned components (`Cap_100uF_35V`, `Cap_22uF_10V_Tant`).
 Board outline (36x36mm, 1mm corner radii) added to PCB file.
 
+## REV-008: Single smaller boot button (Omron B3U-1000P)
+
+**Status**: Fixed
+
+Replaced two TL3342F160QG tactile switches (3.5x3.5mm each) with a single Omron
+B3U-1000P (3.0x2.5x1.6mm) for the BOOT0/DFU button, matching the Brave F7 reference
+design. Key changes:
+
+- **NRST button removed**: Reset circuit retains 10k pullup and 100nF debounce cap
+  for proper operation; reset via power-cycle or SWD instead of dedicated button.
+- **Button component updated**: Footprint changed from `SW_SPST_TL3342` to
+  `SW_SPST_B3U-1000P`, MPN changed to `B3U-1000P`.
+- **Weight savings**: ~0.21g (two TL3342 at 0.24g total replaced by one B3U at 0.03g).
+- **Board space**: Frees ~12mm² from removed NRST button; remaining boot button
+  footprint is 55% smaller (7.5mm² vs 12.25mm²).
+- **Files modified**: `src/mcu.ato`, `specs/mcu-core.md`, `specs/board-mechanical.md`,
+  `WEIGHT_BUDGET.md`.
+
 ## REV-007: Add 10V VTX BEC and upgrade VTX connector to 5-pin
 
 **Status**: Fixed

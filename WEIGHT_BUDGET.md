@@ -156,10 +156,9 @@ complete weight budget.
 
 | Designator | Component | Package | Qty | Unit (g) | Total (g) | Module |
 |------------|-----------|---------|-----|----------|-----------|--------|
-| SW1 | TL3342F160QG (BOOT0) | 3.5x3.5mm SMD | 1 | 0.120 | 0.120 | mcu |
-| SW2 | TL3342F160QG (NRST) | 3.5x3.5mm SMD | 1 | 0.120 | 0.120 | mcu |
+| SW1 | B3U-1000P (BOOT0) | 3.0x2.5mm SMD | 1 | 0.030 | 0.030 | mcu |
 | BZ1 | MLT-8530 buzzer | 8.5x8.5x3mm SMD | 1 | 1.000 | 1.000 | misc |
-| | **Electromechanical Subtotal** | | **3** | | **1.240** | |
+| | **Electromechanical Subtotal** | | **2** | | **1.030** | |
 
 ---
 
@@ -175,9 +174,9 @@ complete weight budget.
 | Inductors / ferrite beads | 2 | 0.45 |
 | Crystals | 2 | 0.03 |
 | Connectors (USB-C + 6x JST-SH) | 7 | 1.60 |
-| Electromechanical (buttons + buzzer) | 3 | 1.24 |
+| Electromechanical (button + buzzer) | 2 | 1.03 |
 | Solder paste (estimate) | — | 0.10 |
-| **Total** | **92** | **7.64** |
+| **Total** | **91** | **7.43** |
 
 *Note: The atopile designator map contains 85 components (J1 + 84 SMD parts). The 6 JST-SH
 connectors are logical modules in the netlist; their physical parts will be added during
@@ -190,8 +189,8 @@ layout. Solder paste mass is estimated for this board density (~200 pads, 150 µ
 | Metric | Value |
 |--------|-------|
 | Target mass | ≤ 8.0 g |
-| Estimated mass | **7.6 g** |
-| **Margin** | **−0.4 g (5% under target)** |
+| Estimated mass | **7.4 g** |
+| **Margin** | **−0.6 g (7% under target)** |
 | Reference (Brave F7) | 8.0 g |
 
 ### Assessment
@@ -216,7 +215,7 @@ exact SMT vs. through-hole variants chosen during layout).
 | 3 | USB4085-GF-A USB-C connector | 0.98 | 12.8% |
 | 4 | CDRH6D28 4.7 µH inductor | 0.44 | 5.8% |
 | 5 | STM32F405RGT6 MCU | 0.35 | 4.6% |
-| 6 | TL3342F160QG buttons (x2) | 0.24 | 3.1% |
+| 6 | B3U-1000P button (x1) | 0.03 | 0.4% |
 | 7 | 100 µF 3528 tantalum (x2) | 0.20 | 2.6% |
 | 8 | AT7456E OSD IC | 0.15 | 2.0% |
 | 9 | JST-SH 8-pin ESC connector | 0.16 | 2.1% |
@@ -235,7 +234,7 @@ Listed in order of effectiveness (highest mass savings first):
 |--------|-----------|-----------|------------|
 | Remove buzzer (BZ1) | 1.00 | Lose lost-model alarm; use motor beeps instead | Easy but functional loss |
 | Lighter buck inductor (4x4mm) | ~0.20 | Lower saturation current; may need layout changes | Medium |
-| Remove one tactile switch | 0.12 | Lose BOOT0 or NRST button; use solder pads instead | Easy |
+| Remove BOOT0 button | 0.03 | Lose DFU button; enter DFU via SWD or BF CLI instead | Easy but inconvenient |
 | Thinner PCB (1.2mm vs 1.6mm) | ~0.5 | Less rigid; may affect impedance targets | Hard |
 | Lighter USB-C connector | ~0.3 | Non-standard footprint; fewer sources | Hard |
 

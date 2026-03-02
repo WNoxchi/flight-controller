@@ -10,7 +10,7 @@ The MCU is the central component. STM32F405RGT6 in LQFP-64 package, 168MHz Corte
 - 1µF + 100nF on VDDA (analog supply, extra filtering)
 - BOOT0 pin: 10kΩ pull-down to GND, tactile button to 3.3V for DFU mode
 - Optional 100nF debounce cap in parallel with BOOT0 pull-down
-- NRST pin: 10kΩ external pull-up to 3.3V, 100nF debounce cap, tactile button to GND
+- NRST pin: 10kΩ external pull-up to 3.3V, 100nF debounce cap (no button — reset via power-cycle or SWD)
 - PB2/BOOT1 hazard: 10kΩ pull-down on PB2 mandatory (prevents SRAM boot)
 - SWD debug: PA13 (SWDIO), PA14 (SWCLK) broken out to test pads with GND and 3.3V
 - No LSE crystal (PC14/PC15 freed as spare GPIO)

@@ -11,7 +11,7 @@
 # - VDDA filtering: ferrite bead recommended between VDD and VDDA (done at
 #   board level in tf405.ato), plus 1uF bulk + 100nF bypass on VDDA pin
 # - BOOT0: 10k pulldown ensures boot-from-flash default, button to 3.3V for DFU
-# - NRST: 10k pullup + 100nF debounce, button to GND for manual reset
+# - NRST: 10k pullup + 100nF debounce (no button — reset via power-cycle or SWD)
 # - PB2/BOOT1: 10k pulldown mandatory to prevent SRAM boot trap (STM32F4 errata)
 # - SWD debug: PA13 (SWDIO) + PA14 (SWCLK) broken out as test pads
 
@@ -135,12 +135,14 @@ component Resistor:
     mpn = "generic_resistor"
     value: resistance
 
+# Omron B3U-1000P: ultra-compact 3.0x2.5x1.6mm tactile switch
+# Matches Brave F7 reference — small enough to sit beside 0402/0603 passives
 component Button:
     signal p1 ~ pin 1
     signal p2 ~ pin 2
     designator_prefix = "SW"
-    footprint = "Button_Switch_SMD:SW_SPST_TL3342"
-    mpn = "TL3342F160QG"
+    footprint = "Button_Switch_SMD:SW_SPST_B3U-1000P"
+    mpn = "B3U-1000P"
 
 # ────────────────────────────────────────────────
 # MCU_F405 module: STM32F405RGT6 + all support circuits
@@ -312,10 +314,11 @@ module MCU_F405:
     sw_boot0 = new Button
     mcu.boot0 ~ sw_boot0.p1; sw_boot0.p2 ~ vdd
 
-    # ── NRST button circuit ──
+    # ── NRST passive circuit (no button) ──
     # 10k pullup to 3.3V: keeps NRST high during normal operation
     # 100nF debounce cap: filters glitches on reset line
-    # Tactile button: connects NRST to GND for manual reset
+    # Reset via power-cycle or SWD — dedicated button removed to match
+    # Brave F7 reference (single boot button only)
     r_nrst = new Resistor
     r_nrst.value = 10kohm +/- 1%
     mcu.nrst ~ r_nrst.p1; r_nrst.p2 ~ vdd
@@ -323,9 +326,6 @@ module MCU_F405:
     c_nrst = new Capacitor
     c_nrst.value = 100nF +/- 10%
     mcu.nrst ~ c_nrst.p1; c_nrst.p2 ~ gnd
-
-    sw_nrst = new Button
-    mcu.nrst ~ sw_nrst.p1; sw_nrst.p2 ~ gnd
 
     # ── PB2/BOOT1 pulldown (MANDATORY) ──
     # Prevents SRAM boot trap on STM32F405 (see errata ES0206 section 2.1.1)
