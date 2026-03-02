@@ -118,15 +118,6 @@ component Cap_22uF_10V_Tant:
 # has no voltage_rating constraint — it picks cheapest by capacitance only.
 # ────────────────────────────────────────────────
 
-# 100uF/35V aluminum electrolytic, 6.3x7.7mm SMD
-# LCSC C3339 — JLCPCB basic part, standard FC bulk input cap
-component Cap_100uF_35V:
-    footprint = "Capacitor_SMD:CP_Elec_6.3x7.7"
-    mpn = "RVT1V101M0607"
-    designator_prefix = "C"
-    signal p1 ~ pin 1  # positive
-    signal p2 ~ pin 2  # negative (GND)
-
 # 22uF/35V X5R MLCC, 1210 package
 # Samsung CL32A226KAJNNNE — LCSC C24497, JLCPCB basic part
 # 35V matches c_vbat_bulk rating; 72% derating at 25.2V (6S max)
@@ -164,7 +155,7 @@ module PowerSystem:
     # ═══════════════════════════════════════════════
     # SECTION 1: VBAT Input Protection
     # TVS diode clamps voltage spikes (SMBJ26A, Vclamp ~42V)
-    # 100uF/50V electrolytic bulk cap near battery pads
+    # 2x 22uF/35V MLCC bulk caps near battery pads
     # ═══════════════════════════════════════════════
 
     # TVS diode: cathode to VBAT, anode to GND (reverse-biased normally)
@@ -172,10 +163,14 @@ module PowerSystem:
     tvs.cathode ~ vbat
     tvs.anode ~ gnd
 
-    # Bulk input capacitor: 100uF/35V electrolytic near battery connector
-    # Pinned MPN — generic solver picked 6.3V tantalum which is unsafe on 6S VBAT (25.2V)
-    c_vbat_bulk = new Cap_100uF_35V
-    vbat ~ c_vbat_bulk.p1; c_vbat_bulk.p2 ~ gnd
+    # Bulk input capacitors: 2x 22uF/35V MLCC (1210) near battery pads
+    # Replaces single 100uF electrolytic — flat profile, lower ESR, no cylindrical cans
+    # Effective ~44uF nominal (DC bias derating reduces this at 25.2V, still adequate
+    # for high-frequency transient suppression from motor switching)
+    c_vbat_bulk_1 = new Cap_22uF_35V
+    vbat ~ c_vbat_bulk_1.p1; c_vbat_bulk_1.p2 ~ gnd
+    c_vbat_bulk_2 = new Cap_22uF_35V
+    vbat ~ c_vbat_bulk_2.p1; c_vbat_bulk_2.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
     # SECTION 2: 5V Buck Regulator (MP1584EN)
@@ -433,13 +428,21 @@ module PowerSystem:
 
     # ═══════════════════════════════════════════════
     # SECTION 8: Bulk Decoupling
-    # 5V rail: 100uF electrolytic near BEC output (absorbs load transients)
+    # 5V rail: 2x 22uF MLCC near BEC output (absorbs load transients)
     # 3.3V rail: 22uF tantalum near LDO output (additional bulk storage)
     # ═══════════════════════════════════════════════
 
-    # Reuse Cap_100uF_35V — 35V rating is overkill for 5V but same pinned footprint
-    c_5v_bulk = new Cap_100uF_35V
-    rail_5v ~ c_5v_bulk.p1; c_5v_bulk.p2 ~ gnd
+    # 2x 22uF/16V MLCC in 1206 — flat profile, replaces cylindrical electrolytic
+    # Combined with c_buck_out (22uF), total 5V bulk is ~66uF nominal
+    c_5v_bulk_1 = new Capacitor
+    c_5v_bulk_1.value = 22uF +/- 20%
+    c_5v_bulk_1.footprint = "Capacitor_SMD:C_1206_3216Metric"
+    rail_5v ~ c_5v_bulk_1.p1; c_5v_bulk_1.p2 ~ gnd
+
+    c_5v_bulk_2 = new Capacitor
+    c_5v_bulk_2.value = 22uF +/- 20%
+    c_5v_bulk_2.footprint = "Capacitor_SMD:C_1206_3216Metric"
+    rail_5v ~ c_5v_bulk_2.p1; c_5v_bulk_2.p2 ~ gnd
 
     c_3v3_bulk = new Cap_22uF_10V_Tant
     rail_3v3 ~ c_3v3_bulk.p1; c_3v3_bulk.p2 ~ gnd
