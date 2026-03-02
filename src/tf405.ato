@@ -14,7 +14,7 @@
 #     ADC   → VBAT sense, current sense, RSSI
 
 from "power.ato" import PowerSystem
-from "mcu.ato" import MCU_F405
+from "mcu.ato" import MCU_F405, MountingHole_M3
 from "imu.ato" import IMU_BMI270
 from "osd.ato" import OSD_AT7456E
 from "flash.ato" import Flash_W25Q128
@@ -24,6 +24,16 @@ from "connectors.ato" import ESCConnector, RXConnector, GPSConnector, SpareConne
 from "misc.ato" import StatusLED, Beeper, LEDStrip, PA4Breakout, SBUSInverter
 
 module TF405:
+    # ── Mounting Holes (30.5mm M3 pattern) ──
+    # Defined in ato so they persist through ato build (not stripped from PCB).
+    # Non-plated, no electrical connection — matches Brave F7 reference.
+    # Position in KiCad layout:
+    #   H1 (2.75, 2.75), H2 (33.25, 2.75), H3 (2.75, 33.25), H4 (33.25, 33.25)
+    h1 = new MountingHole_M3
+    h2 = new MountingHole_M3
+    h3 = new MountingHole_M3
+    h4 = new MountingHole_M3
+
     # ── Power ──
     power = new PowerSystem
 

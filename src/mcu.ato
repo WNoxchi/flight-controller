@@ -135,6 +135,13 @@ component Resistor:
     mpn = "generic_resistor"
     value: resistance
 
+# M3 mounting hole — non-plated, no electrical connection
+# Matches Brave F7 reference (unplated NPTH holes)
+component MountingHole_M3:
+    designator_prefix = "H"
+    footprint = "MountingHole:MountingHole_3.2mm_M3"
+    mpn = "mounting_hole"
+
 # Omron B3U-1000P: ultra-compact 3.0x2.5x1.6mm tactile switch
 # Matches Brave F7 reference — small enough to sit beside 0402/0603 passives
 component Button:
