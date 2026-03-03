@@ -3,13 +3,13 @@
 ## Orientation
 
 0a. Study `specs/*` with up to 500 parallel Sonnet-level subagents to understand the flight controller requirements.
-0b. Study `@IMPLEMENTATION_PLAN.md` to see the current prioritized task list.
+0b. Study `@REV-009-plan.md` to see the current prioritized task list.
 0c. For reference, atopile source code is in `src/*.ato`. Each spec maps 1:1 to a source file.
 0d. Use only 1 subagent for build and test operations (e.g. `ato build`).
 
 ## Your Task
 
-1. Read `@IMPLEMENTATION_PLAN.md` and select the single highest-priority 
+1. Read `@REV-009-plan.md` and select the single highest-priority 
    incomplete task. State the task ID and description before starting any work.
 
 2. Before writing any code, search the codebase to understand the current state 
@@ -29,17 +29,17 @@
      constraint rationale — future iterations won't have your current context)
 
 5. If `ato build` errors are unrelated to your work and quick to fix, fix them.
-   If they require significant work, document them in `@IMPLEMENTATION_PLAN.md`
+   If they require significant work, document them in `@REV-009-plan.md`
    as a new task item — do not derail your current task.
 
 6. Once `ato build` passes:
-   - Update `@IMPLEMENTATION_PLAN.md`: mark your task complete, note any
+   - Update `@REV-009-plan.md`: mark your task complete, note any
      discoveries or new tasks uncovered during implementation
    - Update `@AGENTS.md` if you learned something operational (e.g., an atopile
      pattern that works differently than expected)
    - Stage and commit: `git add -A && git commit -m "<descriptive message>"`
 
-7. When you discover issues, immediately update `@IMPLEMENTATION_PLAN.md` with your findings using a subagent. When resolved, update and remove the item.
+7. When you discover issues, immediately update `@REV-009-plan.md` with your findings using a subagent. When resolved, update and remove the item.
 
 ## Quality Standards
 
@@ -58,7 +58,7 @@
 - **Only implement the one task you selected.** Resist the urge to fix 
   adjacent things, refactor unrelated code, or "quickly add" another feature.
 - If you notice bugs, missing features, or improvement opportunities outside 
-  your current task, add them to `@IMPLEMENTATION_PLAN.md` and move on.
+  your current task, add them to `@REV-009-plan.md` and move on.
 - The only exception: if your task literally cannot work without fixing 
   something else first, fix the blocker as part of your task and document it.
 
@@ -71,4 +71,4 @@
 - Do NOT mark a task complete without a passing `ato build`.
 - Do NOT modify specs unless you find a genuine inconsistency (and if you do, 
   document the change clearly).
-- Keep `@AGENTS.md` operational only - status updates and progress notes belong in `@IMPLEMENTATION_PLAN.md`. A bloaded AGENTS.md pollutes every future loop's context.
+- Keep `@AGENTS.md` operational only - status updates and progress notes belong in `@REV-009-plan.md`. A bloaded AGENTS.md pollutes every future loop's context.
