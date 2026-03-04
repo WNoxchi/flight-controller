@@ -9,7 +9,7 @@ The Brave F7 is a reference, not a clone target. Key intentional differences:
 
 - **MCU**: Brave F7 uses STM32F722RET6; this design uses STM32F405RGT6
 - **Input voltage**: Brave F7 supports 3-8S (up to 33.6V); this design targets 2-6S (up to 25.2V)
-- **BEC**: Brave F7 has dual 5V BEC (5V/3A + 5V/2A); this design matches with dual 5V/2A BEC (both TI LMR43620MB5RPER fixed 5V, synchronous, 36V max input, NDAA-compliant)
+- **BEC**: Brave F7 has 5V/3A + 10V/2A BEC; this design uses 5V/2A (LMR43620MB5RPER fixed) + 10V/2A VTX (LMR43620RNXTRPER adjustable), both TI, synchronous, 36V max input, NDAA-compliant
 - **Board size**: Brave F7 is 37x37mm / 30x30mm mounting; this design matches at 37x37mm / 30x30mm
 - **Flash**: Brave F7 has 16Mbit; this design has 128Mbit (W25Q128)
 - **UARTs**: Brave F7 has 6; this design has 5 (F405 limitation)
@@ -87,6 +87,26 @@ Replaced both MP1584EN (MPS, China-origin, SOIC-8) buck converters with TI LMR43
 - **Current rating**: 2A max (vs 3A for MP1584EN) — sufficient for drone loads.
 - **Files modified**: `src/power.ato`, `specs/power.md`, `WEIGHT_BUDGET.md`,
   `layout-checklist.md`.
+
+## REV-010: Revert VTX BEC from 5V fixed to 10V adjustable
+
+**Status**: Fixed
+
+Reverted VTX BEC from fixed 5V (LMR43620MB5RPER) to adjustable 10V (LMR43620RNXTRPER),
+matching the Brave F7 reference board's 10V VTX output. REV-009b incorrectly assumed
+dual-5V topology. Key changes:
+
+- **VTX BEC**: LMR43620MB5RPER (fixed 5V) → LMR43620RNXTRPER (adjustable, RT variant).
+  Pin 1 is now RT (frequency set) instead of MODE/SYNC.
+- **RT resistor**: 13kΩ to GND on pin 1 sets switching frequency to ~1MHz.
+- **FB divider**: 90.9kΩ top + 10kΩ bottom → Vout = 1.0V × (1 + 90.9k/10k) = 10.09V.
+  Replaces direct FB-to-output tie used by fixed variant.
+- **PINIO1**: Now switches 10V instead of 5V; AO3401A P-FET rated -30V Vds handles 10V
+  Vgs with margin. Gate pullup referenced to 10V VTX rail.
+- **VTX connector**: Pin 1 now labeled 10V (was 5V). Signal renamed v5→v10.
+- **New components**: 3x 0402 resistors (r_rt_vtx 13kΩ, r_fb_vtx_top 90.9kΩ, r_fb_vtx_bot 10kΩ).
+- **Files modified**: `src/power.ato`, `src/connectors.ato`, `src/tf405.ato`,
+  `specs/power.md`, `layout-checklist.md`.
 
 ## REV-009b: Align buck design with Brave F7 dual-5V topology
 

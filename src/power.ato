@@ -1,10 +1,10 @@
-# Power subsystem: VBAT -> 5V Buck (LMR43620) -> 3.3V LDO (AMS1117-3.3)
+# Power subsystem: VBAT -> 5V Buck (LMR43620) -> 3.3V LDO (TLV75533)
 # See specs/power.md for full requirements
 #
 # Design decisions:
 # - TI LMR43620 synchronous buck converters (NDAA-compliant, TI fabs in Dallas TX)
 #   5V BEC: LMR43620MB5RPER (fixed 5V, MODE/SYNC variant, 1MHz internal)
-#   VTX BEC: LMR43620MB5RPER (fixed 5V, dedicated clean rail for VTX)
+#   VTX BEC: LMR43620RNXTRPER (adjustable, RT variant, 10V output via FB divider)
 #   VQFN-HR 2x2mm HotRod package (RPE0009B), 3-36V input, 2A max
 #   Synchronous topology — no external Schottky catch diode needed
 #   Internally compensated — no external COMP network needed
@@ -13,7 +13,7 @@
 # - SMBJ26A TVS: clamp voltage ~29V protects against 6S voltage spikes
 # - Battery voltage divider: 10k/1k gives 10:1 ratio, 25.2V -> 2.29V (safe for 3.3V ADC)
 # - Current sense filter: 1kohm + 100nF RC low-pass, fc = 1/(2*pi*1k*100n) ~= 1.6kHz
-# - PINIO1: AO3401A P-FET high-side switch for VTX power control via PB2
+# - PINIO1: AO3401A P-FET high-side switch for VTX 10V power control via PB2
 #   10kohm gate resistor limits gate current and provides noise immunity
 # - SS34 Schottky diode: USB power OR circuit prevents backfeed from BEC to USB host
 
@@ -43,6 +43,22 @@ component LMR43620_5V:
     signal fb ~ pin 8       # VOUT/FB — tie directly to 5V output (fixed variant)
     signal gnd ~ pin 9      # Ground (largest pad, primary thermal path)
 
+
+# Adjustable output variant (RT pin sets switching frequency)
+# TI marking "2RNX" — for 10V VTX BEC output
+component LMR43620_ADJ:
+    footprint = "lib:TI_RPE0009B_VQFN-HR-9_2x2mm_P0.5mm"
+    mpn = "LMR43620RNXTRPER"
+    designator_prefix = "U"
+    signal rt ~ pin 1       # RT — external resistor to GND sets switching frequency
+    signal pgood ~ pin 2    # Power good (open drain) — leave floating if unused
+    signal en ~ pin 3       # Enable/UVLO — internal pullup to VIN; tie to VIN for always-on
+    signal vin ~ pin 4      # Input supply (3-36V)
+    signal sw ~ pin 5       # Switch node — connect to inductor
+    signal boot ~ pin 6     # Bootstrap — 100nF cap to SW
+    signal vcc ~ pin 7      # Internal 3.3V LDO output — 1uF bypass cap to GND
+    signal fb ~ pin 8       # FB — external resistor divider sets output voltage
+    signal gnd ~ pin 9      # Ground (largest pad, primary thermal path)
 
 # ────────────────────────────────────────────────
 # TLV75533PDBV LDO Voltage Regulator — SOT-23-5
@@ -165,8 +181,8 @@ module PowerSystem:
     signal adc_vbat  # Battery voltage sense output (to PC2, ~2.29V at 6S max)
     signal adc_curr  # Current sense filtered output (to PC1)
 
-    # ── VTX 5V power (switched via PINIO1) ──
-    signal vtx_5v    # PINIO1 switched 5V VTX output (to VTX connector)
+    # ── VTX 10V power (switched via PINIO1) ──
+    signal vtx_10v   # PINIO1 switched 10V VTX output (to VTX connector)
     signal pinio1    # PINIO1 gate control input (from MCU PB2)
 
     # ── USB power OR input ──
@@ -273,18 +289,20 @@ module PowerSystem:
     rail_5v ~ c_buck_out_2.p1; c_buck_out_2.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
-    # SECTION 2b: 5V VTX BEC (TI LMR43620, fixed 5V)
-    # Input: VBAT (7.4-25.2V), Output: 5V/2A
-    # Dedicated clean 5V for VTX — isolated from main 5V rail to reduce
+    # SECTION 2b: 10V VTX BEC (TI LMR43620, adjustable)
+    # Input: VBAT (7.4-25.2V), Output: 10V/2A
+    # Dedicated clean 10V for VTX — isolated from main 5V rail to reduce
     # video noise from digital switching on the main rail.
-    # Same fixed 5V variant as main BEC — matches Brave F7 dual-5V topology.
+    # Adjustable variant with RT resistor (13kΩ → ~1MHz) and FB divider
+    # (90.9kΩ/10kΩ → Vout = 1.0V × (1 + 90.9k/10k) = 10.09V).
+    # Matches Brave F7 reference board 10V VTX output.
     # PINIO1 P-FET switches output to VTX connector (pit mode control).
     # ═══════════════════════════════════════════════
 
-    # Dedicated VTX 5V rail (unswitched, between BEC output and PINIO1 P-FET)
-    signal rail_5v_vtx
+    # Dedicated VTX 10V rail (unswitched, between BEC output and PINIO1 P-FET)
+    signal rail_10v_vtx
 
-    buck_vtx = new LMR43620_5V
+    buck_vtx = new LMR43620_ADJ
 
     # Input power connections
     buck_vtx.vin ~ vbat
@@ -325,28 +343,41 @@ module PowerSystem:
     r_pgood_vtx = new Resistor
     r_pgood_vtx.value = 100kohm +/- 1%
     r_pgood_vtx.package = "0402"
-    buck_vtx.pgood ~ r_pgood_vtx.p1; r_pgood_vtx.p2 ~ rail_5v_vtx
+    buck_vtx.pgood ~ r_pgood_vtx.p1; r_pgood_vtx.p2 ~ rail_10v_vtx
 
-    # MODE/SYNC (pin 1): tie to GND for forced-PWM
-    buck_vtx.rt_mode ~ gnd
+    # RT (pin 1): 13kΩ to GND sets switching frequency to ~1MHz
+    # Per TI SNVSBY5B Table 8-1: R_RT = 13kΩ → f_SW ≈ 1MHz
+    r_rt_vtx = new Resistor
+    r_rt_vtx.value = 13kohm +/- 1%
+    r_rt_vtx.package = "0402"
+    buck_vtx.rt ~ r_rt_vtx.p1; r_rt_vtx.p2 ~ gnd
 
-    # FB (pin 8): tie directly to 5V output (fixed voltage variant)
-    buck_vtx.fb ~ rail_5v_vtx
+    # FB (pin 8): resistor divider sets output voltage
+    # Vout = Vref × (1 + R_top/R_bot) = 1.0V × (1 + 90.9k/10k) = 10.09V
+    r_fb_vtx_top = new Resistor
+    r_fb_vtx_top.value = 90.9kohm +/- 1%
+    r_fb_vtx_top.package = "0402"
+    rail_10v_vtx ~ r_fb_vtx_top.p1; r_fb_vtx_top.p2 ~ buck_vtx.fb
 
-    # Output inductor: 4.7uH/3A shielded
+    r_fb_vtx_bot = new Resistor
+    r_fb_vtx_bot.value = 10kohm +/- 1%
+    r_fb_vtx_bot.package = "0402"
+    buck_vtx.fb ~ r_fb_vtx_bot.p1; r_fb_vtx_bot.p2 ~ gnd
+
+    # Output inductor: 2.2uH shielded
     inductor_vtx = new Inductor_2u2
-    buck_vtx.sw ~ inductor_vtx.p1; inductor_vtx.p2 ~ rail_5v_vtx
+    buck_vtx.sw ~ inductor_vtx.p1; inductor_vtx.p2 ~ rail_10v_vtx
 
     # Output decoupling: 2x 22uF ceramic close to output
     c_buck_vtx_out_1 = new Capacitor
     c_buck_vtx_out_1.value = 22uF +/- 20%
     c_buck_vtx_out_1.footprint = "Capacitor_SMD:C_1206_3216Metric"
-    rail_5v_vtx ~ c_buck_vtx_out_1.p1; c_buck_vtx_out_1.p2 ~ gnd
+    rail_10v_vtx ~ c_buck_vtx_out_1.p1; c_buck_vtx_out_1.p2 ~ gnd
 
     c_buck_vtx_out_2 = new Capacitor
     c_buck_vtx_out_2.value = 22uF +/- 20%
     c_buck_vtx_out_2.footprint = "Capacitor_SMD:C_1206_3216Metric"
-    rail_5v_vtx ~ c_buck_vtx_out_2.p1; c_buck_vtx_out_2.p2 ~ gnd
+    rail_10v_vtx ~ c_buck_vtx_out_2.p1; c_buck_vtx_out_2.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
     # SECTION 3: 3.3V LDO (TI TLV75533, SOT-23-5)
@@ -410,14 +441,14 @@ module PowerSystem:
 
     # ═══════════════════════════════════════════════
     # SECTION 6: PINIO1 VTX Power Switch (N-FET + P-FET level-shifted)
-    # Controls VTX 5V BEC output to VTX connector via PB2 (PINIO1)
+    # Controls VTX 10V BEC output to VTX connector via PB2 (PINIO1)
     #
     # N-FET (2N7002) level shifter required because PB2 (3.3V max) cannot
-    # directly drive P-FET gate to the 5V source voltage for reliable turn-off.
+    # directly drive P-FET gate to the 10V source voltage for reliable turn-off.
     # The N-FET inverts the signal and provides full rail-to-rail gate drive.
     #
-    # PB2 HIGH → N-FET ON → P-FET gate at GND → Vgs=-5V → P-FET ON → VTX powered
-    # PB2 LOW  → N-FET OFF → pullup pulls gate to 5V → Vgs=0 → P-FET OFF → VTX off
+    # PB2 HIGH → N-FET ON → P-FET gate at GND → Vgs=-10V → P-FET ON → VTX powered
+    # PB2 LOW  → N-FET OFF → pullup pulls gate to 10V → Vgs=0 → P-FET OFF → VTX off
     #
     # Default state: PB2 has 10k pulldown (BOOT1) → VTX off at power-on.
     # Betaflight firmware sets PB2 high at boot to enable VTX power.
@@ -433,15 +464,16 @@ module PowerSystem:
     pinio1 ~ r_pinio_gate.p1; r_pinio_gate.p2 ~ q_pinio_nfet.gate
     q_pinio_nfet.source ~ gnd
 
-    # P-FET gate pullup: 100kΩ to rail_5v_vtx (holds P-FET OFF when N-FET is off)
+    # P-FET gate pullup: 100kΩ to rail_10v_vtx (holds P-FET OFF when N-FET is off)
     r_pinio_pullup = new Resistor
     r_pinio_pullup.value = 100kohm +/- 1%
-    q_pinio_nfet.drain ~ r_pinio_pullup.p1; r_pinio_pullup.p2 ~ rail_5v_vtx
+    q_pinio_nfet.drain ~ r_pinio_pullup.p1; r_pinio_pullup.p2 ~ rail_10v_vtx
 
-    # P-FET high-side switch: source=5V VTX rail, drain=VTX connector output
+    # P-FET high-side switch: source=10V VTX rail, drain=VTX connector output
+    # AO3401A rated -30V Vds, -4A Id — handles 10V Vgs with margin
     pinio_fet = new AO3401A
-    pinio_fet.source ~ rail_5v_vtx
-    pinio_fet.drain ~ vtx_5v
+    pinio_fet.source ~ rail_10v_vtx
+    pinio_fet.drain ~ vtx_10v
     q_pinio_nfet.drain ~ pinio_fet.gate
 
     # ═══════════════════════════════════════════════

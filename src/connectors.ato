@@ -173,18 +173,18 @@ module CameraConnector:
     conn.mp ~ gnd
 
 module VTXConnector:
-    # 5-pin JST-SH: 5V(1), GND(2), VIDEO(3), RX(4), TX(5)
+    # 5-pin JST-SH: 10V(1), GND(2), VIDEO(3), RX(4), TX(5)
     # Matches Brave F7 AVTX connector layout
-    # Dedicated 5V from VTX BEC, switchable via PINIO1 (N-FET + P-FET in power.ato)
+    # Dedicated 10V from VTX BEC, switchable via PINIO1 (N-FET + P-FET in power.ato)
     # Full UART5 for SmartAudio / IRC Tramp bidirectional VTX control
-    signal v5
+    signal v10
     signal gnd
     signal video_in
     signal uart_rx
     signal uart_tx
 
     conn = new JST_SH_5pin
-    conn.p1 ~ v5
+    conn.p1 ~ v10
     conn.p2 ~ gnd
     conn.p3 ~ video_in
     conn.p4 ~ uart_rx

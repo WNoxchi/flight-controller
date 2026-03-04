@@ -130,23 +130,26 @@ U5 is a TSSOP-28 with pins on left (1-14) and right (15-28) sides.
 
 ---
 
-## Group 5: Power — 5V VTX Buck (U1 — LMR43620MB5RPER, fixed 5V) [PLACED]
+## Group 5: Power — 10V VTX Buck (U1 — LMR43620RNXTRPER, adjustable) [PLACED — needs RT + FB added]
 
-Identical topology to Group 4 (REV-009b: dual-5V, matching Brave F7).
+Adjustable variant with RT resistor and FB divider for 10V output (REV-010).
 
 | Ref | What | Placement note |
 |-----|------|---------------|
 | U1 | LMR43620 (VQFN-HR 2x2mm, 9-pad) | Near VTX connector side. Pin 9 (GND) vias to GND plane. |
-| L2 | 2.2µH inductor (Würth MAPI-4020, 4x4mm) | Pad 1 to U1 pin 5 (SW), pad 2 is 5V VTX output |
+| L2 | 2.2µH inductor (Würth MAPI-4020, 4x4mm) | Pad 1 to U1 pin 5 (SW), pad 2 is 10V VTX output |
 | C27 | VIN input cap 4.7µF/50V (0805) | Close to U1 pin 4 (VIN), next to C28 |
 | C28 | VIN HF bypass 100nF (0402) | Closest to U1 pin 4 (VIN) |
 | C24 | Bootstrap cap 100nF (0402) | Between U1 pin 6 (BOOT) and pin 5 (SW) |
 | C44 | VCC bypass 1µF (0402) | Adjacent to U1 pin 7 (VCC) |
-| C37 | Output cap 22µF (1206) | At L2 pad 2 (5V VTX output), pad 1 to 5V, pad 2 to GND |
+| C37 | Output cap 22µF (1206) | At L2 pad 2 (10V VTX output), pad 1 to 10V, pad 2 to GND |
 | C38 | Output cap 22µF (1206) | Adjacent to C37 |
 | R14 | EN/UVLO divider top 430kΩ (0402) | Near U1 pin 3 (EN), one pad to VBAT |
 | R12 | EN/UVLO divider bottom 100kΩ (0402) | Near U1 pin 3 (EN), other pad to GND |
-| R15 | PGOOD pullup 100kΩ (0402) | Near U1 pin 2 (PGOOD), pullup to 5V VTX rail |
+| R15 | PGOOD pullup 100kΩ (0402) | Near U1 pin 2 (PGOOD), pullup to 10V VTX rail |
+| Rxx | RT frequency set 13kΩ (0402) | Near U1 pin 1 (RT), other pad to GND |
+| Rxx | FB divider top 90.9kΩ (0402) | Near U1 pin 8 (FB), other pad to 10V output |
+| Rxx | FB divider bottom 10kΩ (0402) | Near U1 pin 8 (FB), other pad to GND |
 
 ---
 

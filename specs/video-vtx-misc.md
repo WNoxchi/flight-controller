@@ -16,7 +16,7 @@ Video does NOT pass through MCU.
 ## VTX Connector (5-pin JST-SH 1.0)
 | Pin | Signal  | Notes                              |
 |-----|---------|------------------------------------|
-| 1   | 5V      | Regulated 5V BEC, switchable via PINIO1 |
+| 1   | 10V     | Regulated 10V BEC, switchable via PINIO1 |
 | 2   | GND     |                                    |
 | 3   | VIDEO   | Composite video out (from OSD out) |
 | 4   | RX      | UART5_RX (PD2) — VTX control RX   |
@@ -27,7 +27,7 @@ Video does NOT pass through MCU.
 - BEEPER: PB1 (inverted, drives N-FET to buzzer)
 - LED_STRIP: PB6 (WS2812 data, TIM4_CH1)
 - CAMERA_CONTROL: PB3 (Betaflight camera OSD joystick)
-- PINIO1: PB2 (switchable 5V VTX rail, see power spec)
+- PINIO1: PB2 (switchable 10V VTX rail, see power spec)
 - PA4: servo/detonator solder pad (DAC capable, TIM2 or GPIO)
 
 ## Assert Constraints

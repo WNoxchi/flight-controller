@@ -47,22 +47,23 @@
 - 4.7µF ceramic on VBUS after Schottky
 - FC runs on USB power alone for configuration
 
-## 5V VTX BEC (TI LMR43620MB5RPER — fixed 5V)
-- Input: VBAT (4.5-36V), Output: 5V fixed/2A, synchronous, internally compensated, VQFN-HR 2x2mm (9-pad)
-- Fixed output — no feedback divider needed (FB pin connected internally)
-- MODE/SYNC pin: tied to VIN for forced-PWM mode
+## 10V VTX BEC (TI LMR43620RNXTRPER — adjustable)
+- Input: VBAT (4.5-36V), Output: 10V/2A (via FB divider), synchronous, internally compensated, VQFN-HR 2x2mm (9-pad)
+- Adjustable output via external feedback divider: 90.9kΩ top / 10kΩ bottom → Vout = 1.0V × (1 + 90.9k/10k) = 10.09V
+- RT pin: 13kΩ to GND sets switching frequency to ~1MHz (per TI Table 8-1)
 - EN/UVLO divider: 430kΩ / 100kΩ — UVLO threshold ~6.47V rising, ~5.5V falling (3.4µA hysteresis current)
 - PGOOD: 100kΩ pullup to output rail (open-drain, indicates output in regulation)
 - PINIO1 P-FET switches output to VTX connector
-- Dedicated power for analog VTX — matches Brave F7 dual-5V topology
-- External components: 4.7µF/50V input cap (0805), 100nF VIN HF bypass cap (0402), 1µF VCC bypass cap (0402), 100nF bootstrap cap (0402), 2.2µH/2A shielded inductor (Würth MAPI-4020, 74438356022, 4mm), 2x 22µF output caps
+- Dedicated 10V power for analog VTX — matches Brave F7 reference board VTX output voltage
+- External components: 4.7µF/50V input cap (0805), 100nF VIN HF bypass cap (0402), 1µF VCC bypass cap (0402), 100nF bootstrap cap (0402), 2.2µH/2A shielded inductor (Würth MAPI-4020, 74438356022, 4mm), 2x 22µF output caps, 13kΩ RT resistor (0402), 90.9kΩ + 10kΩ FB divider (0402)
 - No external Schottky catch diode (synchronous — internal low-side FET)
 - No external compensation network (internally compensated)
 
-## PINIO1 Switchable 5V VTX (N-FET + P-FET level-shifted)
+## PINIO1 Switchable 10V VTX (N-FET + P-FET level-shifted)
 - N-FET (2N7002): gate driven by PB2 via 10kΩ, source to GND
-- P-FET (AO3401A): source=5V VTX rail, drain=VTX connector, gate driven by N-FET drain
-- 100kΩ pullup from P-FET gate to 5V VTX rail (default OFF)
+- P-FET (AO3401A): source=10V VTX rail, drain=VTX connector, gate driven by N-FET drain
+- AO3401A rated -30V Vds — handles 10V Vgs with margin
+- 100kΩ pullup from P-FET gate to 10V VTX rail (default OFF)
 - PB2 HIGH → N-FET ON → P-FET gate low → VTX powered
 - PB2 LOW (default, BOOT1 pulldown) → N-FET OFF → P-FET gate high → VTX off
 - Provides VTX pit mode control
