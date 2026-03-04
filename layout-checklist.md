@@ -112,58 +112,41 @@ U5 is a TSSOP-28 with pins on left (1-14) and right (15-28) sides.
 
 ---
 
-## Group 4: Power — 5V Buck (U6 — LMR43620MB5RPER, fixed 5V)
-
-Place near ESC connector (J2) at rear edge. Hot zone — keep away from IMU and baro.
-LMR43620 is a VQFN-HR 2x2mm (much smaller than the old SOIC-8 MP1584EN), so the entire
-power group fits in a tighter area. Synchronous topology — no external catch diode.
+## Group 4: Power — 5V Buck (U6 — LMR43620MB5RPER, fixed 5V) [PLACED]
 
 | Ref | What | Placement note |
 |-----|------|---------------|
-| U6 | LMR43620 (VQFN-HR 2x2mm, 9-pad) | Near rear/ESC edge, within 5mm of L1. Thermal pad to GND plane via array. |
-| L1 | 4.7uH inductor (6.3x6.3mm) | Adjacent to U6 SW pin. Short, wide trace. |
-| C_5V_IN | Input cap 4.7µF/50V (0805) | As close as possible to U6 VIN and PGND pads |
-| C_5V_HF | VIN HF bypass 100nF (0402) | Right next to C_5V_IN, between VIN and PGND |
-| C_5V_VCC | VCC bypass 1µF (0402) | Within 2mm of U6 VCC pin |
-| C_5V_BST | Bootstrap cap 100nF (0402) | Between U6 BST and SW pins, tight |
-| C_5V_O1 | Output cap 22µF (0603) | At L1 output, close to VOUT/GND |
-| C_5V_O2 | Output cap 22µF (0603) | Adjacent to C_5V_O1 |
-| D4 | TVS (SMBJ26A, SMB) | At VBAT input, near C41/C42 |
-
-**Critical constraints:**
-- SW node is the noisiest trace — keep short and wide, >=0.5mm from analog signals
-- Input cap (C_5V_IN) must be the closest component to VIN/PGND pins
-- Hot loop: C_5V_IN → U6 VIN → U6 PGND → C_5V_IN (minimize area)
-- Thermal pad (exposed pad) needs via array to L2 GND plane for heat dissipation
-- No external Schottky diode needed (synchronous internal FETs)
-- No feedback divider needed (fixed 5V variant)
-- No compensation network needed (internally compensated)
-- Output caps (C_5V_O1, C_5V_O2) should connect directly to inductor output pad
-- Keep entire power section >=10mm from IMU (U3) and baro (U9)
+| U6 | LMR43620 (VQFN-HR 2x2mm, 9-pad) | Near rear/ESC edge. Pin 9 (GND) vias to GND plane. |
+| L1 | 2.2µH inductor (Würth MAPI-4020, 4x4mm) | Pad 1 to U6 pin 5 (SW), pad 2 is 5V output |
+| C26 | VIN input cap 4.7µF/50V (0805) | Close to U6 pin 4 (VIN), next to C33 |
+| C33 | VIN HF bypass 100nF (0402) | Closest to U6 pin 4 (VIN) — hottest loop cap |
+| C25 | Bootstrap cap 100nF (0402) | Between U6 pin 6 (BOOT) and pin 5 (SW) |
+| C43 | VCC bypass 1µF (0402) | Adjacent to U6 pin 7 (VCC) |
+| C39 | Output cap 22µF (1206) | At L1 pad 2 (5V output), pad 1 to 5V, pad 2 to GND |
+| C40 | Output cap 22µF (1206) | Adjacent to C39 |
+| R27 | EN/UVLO divider top 430kΩ (0402) | Near U6 pin 3 (EN), one pad to VBAT |
+| R16 | EN/UVLO divider bottom 100kΩ (0402) | Near U6 pin 3 (EN), other pad to GND |
+| R30 | PGOOD pullup 100kΩ (0402) | Near U6 pin 2 (PGOOD), pullup to 5V rail |
 
 ---
 
-## Group 5: Power — 10V VTX Buck (U1 — LMR43620RNXTRPER, adjustable)
+## Group 5: Power — 5V VTX Buck (U1 — LMR43620MB5RPER, fixed 5V) [PLACED]
 
-Same IC family as 5V buck but adjustable output variant (RT pin instead of MODE/SYNC).
-Place near VTX connector (J7) side. VQFN-HR 2x2mm — much smaller than old SOIC-8.
+Identical topology to Group 4 (REV-009b: dual-5V, matching Brave F7).
 
 | Ref | What | Placement note |
 |-----|------|---------------|
-| U1 | LMR43620 (VQFN-HR 2x2mm, 9-pad) | Near VTX connector side. Thermal pad to GND plane via array. |
-| L2 | 4.7uH inductor (6.3x6.3mm) | Adjacent to U1 SW pin |
-| C_10V_IN | Input cap 4.7µF/50V (0805) | Tight to U1 VIN/PGND pads |
-| C_10V_HF | VIN HF bypass 100nF (0402) | Right next to C_10V_IN |
-| C_10V_VCC | VCC bypass 1µF (0402) | Within 2mm of U1 VCC pin |
-| C_10V_BST | Bootstrap cap 100nF (0402) | Between U1 BST and SW |
-| C_10V_O1 | Output cap 22µF (0603) | At L2 output |
-| C_10V_O2 | Output cap 22µF (0603) | Adjacent to C_10V_O1 |
-| R_10V_FBT | FB top resistor 90.9kΩ (0402) | Near U1 FB pin |
-| R_10V_FBB | FB bottom resistor 10kΩ (0402) | Near R_10V_FBT, divider to GND |
-| R_10V_RT | RT frequency set 13kΩ (0402) | Near U1 RT pin |
-
-**Same layout rules as Group 4** — minimize hot loop area, keep SW trace short. Thermal pad
-via array critical for heat dissipation. No external Schottky or compensation network.
+| U1 | LMR43620 (VQFN-HR 2x2mm, 9-pad) | Near VTX connector side. Pin 9 (GND) vias to GND plane. |
+| L2 | 2.2µH inductor (Würth MAPI-4020, 4x4mm) | Pad 1 to U1 pin 5 (SW), pad 2 is 5V VTX output |
+| C27 | VIN input cap 4.7µF/50V (0805) | Close to U1 pin 4 (VIN), next to C28 |
+| C28 | VIN HF bypass 100nF (0402) | Closest to U1 pin 4 (VIN) |
+| C24 | Bootstrap cap 100nF (0402) | Between U1 pin 6 (BOOT) and pin 5 (SW) |
+| C44 | VCC bypass 1µF (0402) | Adjacent to U1 pin 7 (VCC) |
+| C37 | Output cap 22µF (1206) | At L2 pad 2 (5V VTX output), pad 1 to 5V, pad 2 to GND |
+| C38 | Output cap 22µF (1206) | Adjacent to C37 |
+| R14 | EN/UVLO divider top 430kΩ (0402) | Near U1 pin 3 (EN), one pad to VBAT |
+| R12 | EN/UVLO divider bottom 100kΩ (0402) | Near U1 pin 3 (EN), other pad to GND |
+| R15 | PGOOD pullup 100kΩ (0402) | Near U1 pin 2 (PGOOD), pullup to 5V VTX rail |
 
 ---
 
@@ -280,8 +263,8 @@ via array critical for heat dissipation. No external Schottky or compensation ne
 1. ~~Group 1: MCU decoupling~~ [DONE]
 2. Group 2: IMU — most sensitive, sets center placement
 3. Group 3: OSD support — caps near already-placed U5
-4. Group 4: 5V buck — thermal/noise critical, sets power zone
-5. Group 5: 10V buck — same constraints as Group 4
+4. ~~Group 4: 5V buck~~ [DONE]
+5. ~~Group 5: 5V VTX buck~~ [DONE]
 6. Group 6: LDO + PINIO
 7. Group 7: Power input + sensing
 8. Group 8: Flash support
