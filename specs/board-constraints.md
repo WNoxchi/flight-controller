@@ -27,4 +27,4 @@ All major ICs from NDAA-compliant sources:
 - BMP390: Bosch (German)
 - AT7456E: Microchip/Atmel (US)
 - W25Q128: Winbond (Taiwanese, generally clean)
-- MP1584EN: Monolithic Power Systems (US)
+- LMR43620: Texas Instruments (US)

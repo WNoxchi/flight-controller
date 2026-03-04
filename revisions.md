@@ -9,7 +9,7 @@ The Brave F7 is a reference, not a clone target. Key intentional differences:
 
 - **MCU**: Brave F7 uses STM32F722RET6; this design uses STM32F405RGT6
 - **Input voltage**: Brave F7 supports 3-8S (up to 33.6V); this design targets 2-6S (up to 25.2V)
-- **BEC**: Brave F7 has 10V/2A + 5V/3A dual BEC; this design matches with 10V + 5V/2A dual BEC (both TI LMR43620, synchronous, 36V max input, NDAA-compliant)
+- **BEC**: Brave F7 has dual 5V BEC (5V/3A + 5V/2A); this design matches with dual 5V/2A BEC (both TI LMR43620MB5RPER fixed 5V, synchronous, 36V max input, NDAA-compliant)
 - **Board size**: Brave F7 is 37x37mm / 30x30mm mounting; this design matches at 37x37mm / 30x30mm
 - **Flash**: Brave F7 has 16Mbit; this design has 128Mbit (W25Q128)
 - **UARTs**: Brave F7 has 6; this design has 5 (F405 limitation)
@@ -71,9 +71,8 @@ Replaced both MP1584EN (MPS, China-origin, SOIC-8) buck converters with TI LMR43
 
 - **5V BEC**: LMR43620MB5RPER (fixed 5V output, MODE/SYNC pin variant). No feedback
   divider needed — internal fixed output eliminates 2 resistors.
-- **10V VTX BEC**: LMR43620RNXTRPER (adjustable output, RT pin variant). Feedback divider
-  changed: 90.9kΩ/10kΩ (VREF=1.0V, Vout = 1.0V × (1 + 9.09) = 10.09V). RT resistor
-  (13kΩ 0402) sets switching frequency.
+- **VTX BEC**: Originally LMR43620RNXTRPER (adjustable 10V), updated to LMR43620MB5RPER
+  (fixed 5V) in REV-009b.
 - **Synchronous topology**: Internal high-side and low-side FETs eliminate the external
   SS34 Schottky catch diode for each buck (2x SS34 removed; one SS34 remains for USB
   power OR).
@@ -88,6 +87,24 @@ Replaced both MP1584EN (MPS, China-origin, SOIC-8) buck converters with TI LMR43
 - **Current rating**: 2A max (vs 3A for MP1584EN) — sufficient for drone loads.
 - **Files modified**: `src/power.ato`, `specs/power.md`, `WEIGHT_BUDGET.md`,
   `layout-checklist.md`.
+
+## REV-009b: Align buck design with Brave F7 dual-5V topology
+
+**Status**: Fixed
+
+Changed VTX BEC from adjustable 10V (LMR43620RNXTRPER) to fixed 5V (LMR43620MB5RPER),
+matching the Brave F7 dual-5V architecture. Both bucks now use the same fixed 5V part. Key changes:
+
+- **VTX BEC**: LMR43620RNXTRPER (adjustable) → LMR43620MB5RPER (fixed 5V). Removed RT
+  resistor (13kΩ) and feedback divider (90.9kΩ/10kΩ) — no longer needed for fixed variant.
+- **EN/UVLO dividers**: Added 430kΩ/100kΩ divider on EN pin for both bucks. Sets UVLO
+  threshold at ~6.47V rising (~5.5V falling via 3.4µA internal hysteresis current),
+  protecting against operating on critically low battery.
+- **PGOOD pullups**: Added 100kΩ pullup to output rail on both bucks.
+- **Inductors**: 4.7µH → 2.2µH (Würth MAPI-4020, 74438356022, 4mm) — matches TI's 1MHz/5V
+  recommendation and Brave F7 inductor specs.
+- **PINIO1**: Now switches 5V instead of 10V; P-FET gate pullup referenced to 5V VTX rail.
+- **Files modified**: `src/power.ato`, `src/connectors.ato`, `src/tf405.ato`.
 
 ## REV-008: Single smaller boot button (Omron B3U-1000P)
 
@@ -107,22 +124,21 @@ design. Key changes:
 - **Files modified**: `src/mcu.ato`, `specs/mcu-core.md`, `specs/board-mechanical.md`,
   `WEIGHT_BUDGET.md`.
 
-## REV-007: Add 10V VTX BEC and upgrade VTX connector to 5-pin
+## REV-007: Add VTX BEC and upgrade VTX connector to 5-pin
 
-**Status**: Fixed
+**Status**: Fixed (superseded by REV-009/009b for BEC component)
 
-Added dedicated 10V/2A BEC (second MP1584EN) for VTX power, matching the Brave F7
-reference design. Key changes:
+Added dedicated VTX BEC (originally 10V MP1584EN, later replaced — see REV-009/009b)
+for VTX power, matching the Brave F7 reference design. Key changes:
 
-- **10V BEC**: MP1584EN with 115kΩ/10kΩ feedback divider (Vout = 10.0V). Same
-  passive component types as 5V BEC (inductor, Schottky, caps, comp network).
-  EN tied to VIN (always-on).
+- **VTX BEC**: Originally MP1584EN with 115kΩ/10kΩ feedback divider (Vout = 10.0V).
+  Later replaced by TI LMR43620 in REV-009, then changed to fixed 5V in REV-009b.
 - **PINIO1 redesign**: Added 2N7002 N-FET level shifter for proper P-FET gate
-  drive. 3.3V PB2 cannot directly switch a P-FET with 10V source — the N-FET
-  inverts and level-shifts the control signal. 100kΩ pullup holds P-FET OFF
-  by default (VTX off at power-on, safer than always-on).
+  drive. 3.3V PB2 cannot directly switch a P-FET — the N-FET inverts and
+  level-shifts the control signal. 100kΩ pullup holds P-FET OFF by default
+  (VTX off at power-on, safer than always-on).
 - **VTX connector**: Upgraded from 4-pin to 5-pin JST-SH (SM05B-SRSS-TB).
-  New pinout: 10V(1), GND(2), VIDEO(3), UART5_RX(4), UART5_TX(5).
+  New pinout: 5V(1), GND(2), VIDEO(3), UART5_RX(4), UART5_TX(5).
   Full UART5 enables bidirectional VTX control (IRC Tramp, SmartAudio v2.1).
 - **UART5_RX (PD2)**: Now connected to VTX connector pin 4. Previously unused.
 

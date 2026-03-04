@@ -6,10 +6,12 @@
 ## 5V Buck Regulator (TI LMR43620MB5RPER — fixed 5V)
 - Input: 4.5-36V, Output: 5V fixed, Max 2A, synchronous, internally compensated, VQFN-HR 2x2mm (9-pad)
 - Fixed output — no feedback divider needed (FB pin connected internally)
-- External components: 4.7µF/50V input cap (0805), 100nF VIN HF bypass cap (0402), 1µF VCC bypass cap (0402), 100nF bootstrap cap (0402), 4.7µH/2A shielded inductor, 2x 22µF output caps
+- External components: 4.7µF/50V input cap (0805), 100nF VIN HF bypass cap (0402), 1µF VCC bypass cap (0402), 100nF bootstrap cap (0402), 2.2µH/2A shielded inductor (Würth MAPI-4020, 74438356022, 4mm), 2x 22µF output caps
 - No external Schottky catch diode (synchronous — internal low-side FET)
 - No external compensation network (internally compensated)
 - MODE/SYNC pin: tied to VIN for forced-PWM mode
+- EN/UVLO divider: 430kΩ / 100kΩ — UVLO threshold ~6.47V rising, ~5.5V falling (3.4µA hysteresis current)
+- PGOOD: 100kΩ pullup to output rail (open-drain, indicates output in regulation)
 - Feeds: GPS, receiver, camera, LED strip, buzzer, USB VBUS out, 3.3V LDO input
 
 ## 3.3V LDO (AMS1117-3.3)
@@ -44,20 +46,22 @@
 - 4.7µF ceramic on VBUS after Schottky
 - FC runs on USB power alone for configuration
 
-## 10V VTX BEC (TI LMR43620RNXTRPER — adjustable, RT variant)
-- Input: VBAT (4.5-36V), Output: 10V/2A, synchronous, internally compensated, VQFN-HR 2x2mm (9-pad)
-- Feedback divider: 90.9kΩ / 10kΩ → Vout = 1.0V × (1 + 9.09) = 10.09V (VREF = 1.0V)
-- RT resistor: 13kΩ (0402) sets switching frequency
-- EN tied to VIN (always-on); PINIO1 P-FET switches output to connector
-- Dedicated power for analog VTX — matches Brave F7 reference
-- External components: 4.7µF/50V input cap (0805), 100nF VIN HF bypass cap (0402), 1µF VCC bypass cap (0402), 100nF bootstrap cap (0402), 4.7µH/2A shielded inductor, 2x 22µF output caps, FB divider
+## 5V VTX BEC (TI LMR43620MB5RPER — fixed 5V)
+- Input: VBAT (4.5-36V), Output: 5V fixed/2A, synchronous, internally compensated, VQFN-HR 2x2mm (9-pad)
+- Fixed output — no feedback divider needed (FB pin connected internally)
+- MODE/SYNC pin: tied to VIN for forced-PWM mode
+- EN/UVLO divider: 430kΩ / 100kΩ — UVLO threshold ~6.47V rising, ~5.5V falling (3.4µA hysteresis current)
+- PGOOD: 100kΩ pullup to output rail (open-drain, indicates output in regulation)
+- PINIO1 P-FET switches output to VTX connector
+- Dedicated power for analog VTX — matches Brave F7 dual-5V topology
+- External components: 4.7µF/50V input cap (0805), 100nF VIN HF bypass cap (0402), 1µF VCC bypass cap (0402), 100nF bootstrap cap (0402), 2.2µH/2A shielded inductor (Würth MAPI-4020, 74438356022, 4mm), 2x 22µF output caps
 - No external Schottky catch diode (synchronous — internal low-side FET)
 - No external compensation network (internally compensated)
 
-## PINIO1 Switchable 10V (N-FET + P-FET level-shifted)
+## PINIO1 Switchable 5V VTX (N-FET + P-FET level-shifted)
 - N-FET (2N7002): gate driven by PB2 via 10kΩ, source to GND
-- P-FET (AO3401A): source=10V rail, drain=VTX connector, gate driven by N-FET drain
-- 100kΩ pullup from P-FET gate to 10V rail (default OFF)
+- P-FET (AO3401A): source=5V VTX rail, drain=VTX connector, gate driven by N-FET drain
+- 100kΩ pullup from P-FET gate to 5V VTX rail (default OFF)
 - PB2 HIGH → N-FET ON → P-FET gate low → VTX powered
 - PB2 LOW (default, BOOT1 pulldown) → N-FET OFF → P-FET gate high → VTX off
 - Provides VTX pit mode control
