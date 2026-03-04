@@ -3,9 +3,13 @@
 ## Overview
 2-6S LiPo input (7.4-25.2V) with buck to 5V, LDO to 3.3V, USB power OR.
 
-## 5V Buck Regulator (MP1584EN)
-- Input: 4.5-28V, Output: 5V, Max 3A, 1.5MHz switching, SOIC-8
-- External components: 22µF/50V input cap, 22µF/16V output cap, 4.7µH/3A shielded inductor, 100nF bootstrap cap, feedback resistor divider
+## 5V Buck Regulator (TI LMR43620MB5RPER — fixed 5V)
+- Input: 4.5-36V, Output: 5V fixed, Max 2A, synchronous, internally compensated, VQFN-HR 2x2mm (9-pad)
+- Fixed output — no feedback divider needed (FB pin connected internally)
+- External components: 4.7µF/50V input cap (0805), 100nF VIN HF bypass cap (0402), 1µF VCC bypass cap (0402), 100nF bootstrap cap (0402), 4.7µH/2A shielded inductor, 2x 22µF output caps
+- No external Schottky catch diode (synchronous — internal low-side FET)
+- No external compensation network (internally compensated)
+- MODE/SYNC pin: tied to VIN for forced-PWM mode
 - Feeds: GPS, receiver, camera, LED strip, buzzer, USB VBUS out, 3.3V LDO input
 
 ## 3.3V LDO (AMS1117-3.3)
@@ -40,12 +44,15 @@
 - 4.7µF ceramic on VBUS after Schottky
 - FC runs on USB power alone for configuration
 
-## 10V VTX BEC (MP1584EN)
-- Input: VBAT (4.5-28V), Output: 10V/2A (max 3A)
-- Feedback divider: 115kΩ / 10kΩ → Vout = 0.8V × (1 + 11.5) = 10.0V
+## 10V VTX BEC (TI LMR43620RNXTRPER — adjustable, RT variant)
+- Input: VBAT (4.5-36V), Output: 10V/2A, synchronous, internally compensated, VQFN-HR 2x2mm (9-pad)
+- Feedback divider: 90.9kΩ / 10kΩ → Vout = 1.0V × (1 + 9.09) = 10.09V (VREF = 1.0V)
+- RT resistor: 13kΩ (0402) sets switching frequency
 - EN tied to VIN (always-on); PINIO1 P-FET switches output to connector
 - Dedicated power for analog VTX — matches Brave F7 reference
-- External components match 5V BEC: inductor, Schottky, caps, comp network
+- External components: 4.7µF/50V input cap (0805), 100nF VIN HF bypass cap (0402), 1µF VCC bypass cap (0402), 100nF bootstrap cap (0402), 4.7µH/2A shielded inductor, 2x 22µF output caps, FB divider
+- No external Schottky catch diode (synchronous — internal low-side FET)
+- No external compensation network (internally compensated)
 
 ## PINIO1 Switchable 10V (N-FET + P-FET level-shifted)
 - N-FET (2N7002): gate driven by PB2 via 10kΩ, source to GND
@@ -61,7 +68,7 @@
 - VCAP1/VCAP2: 2.2µF ceramic each
 - Per-chip 100nF on BMI270, BMP390, AT7456E, W25Q128
 - AT7456E AVDD: 100nF + ferrite bead (isolated analog supply)
-- 5V bulk: 100µF electrolytic near BEC
+- 5V bulk: 2x 22µF MLCC output caps on 5V buck (no separate bulk cap needed)
 - 3.3V bulk: 22µF tantalum near LDO
 
 ## Assert Constraints

@@ -1,10 +1,13 @@
-# Power subsystem: VBAT -> 5V Buck (MP1584EN) -> 3.3V LDO (AMS1117-3.3)
+# Power subsystem: VBAT -> 5V Buck (LMR43620) -> 3.3V LDO (AMS1117-3.3)
 # See specs/power.md for full requirements
 #
 # Design decisions:
-# - MP1584EN SOIC-8 buck converter: 4.5-28V input, 5V/3A output, 1.5MHz switching
-#   Feedback divider: R_fb_top=210kohm / R_fb_bot=40kohm sets Vout = 0.8V*(1+210/40) = 5.0V
-#   These are the datasheet-recommended values for 5V output.
+# - TI LMR43620 synchronous buck converters (NDAA-compliant, TI fabs in Dallas TX)
+#   5V BEC: LMR43620MB5RPER (fixed 5V, MODE/SYNC variant, 1MHz internal)
+#   10V VTX BEC: LMR43620RNXTRPER (adjustable, RT variant)
+#   VQFN-HR 2x2mm HotRod package (RPE0009B), 3-36V input, 2A max
+#   Synchronous topology — no external Schottky catch diode needed
+#   Internally compensated — no external COMP network needed
 # - AMS1117-3.3 SOT-223 LDO: 5V input, 3.3V/1A output
 #   22uF tantalum output cap required for stability (ESR-dependent loop compensation)
 # - SMBJ26A TVS: clamp voltage ~29V protects against 6S voltage spikes
@@ -18,22 +21,42 @@ from "mcu.ato" import Capacitor, Resistor
 from "misc.ato" import NFET_2N7002
 
 # ────────────────────────────────────────────────
-# MP1584EN Step-Down (Buck) Converter — SOIC-8
-# Pin mapping from MPS datasheet DS1001a Rev 1.1
-# Input: 4.5-28V, Output: adjustable, Max 3A, up to 1.5MHz switching
+# TI LMR43620 Synchronous Buck Converter — VQFN-HR 2x2mm (RPE0009B)
+# Pin mapping from TI datasheet SNVSBY5B, Table 6-1
+# Input: 3-36V (42V transient), Output: 2A max, synchronous (no ext diode)
+# Internally compensated. HotRod flip-chip package, no exposed thermal pad.
 # ────────────────────────────────────────────────
-component MP1584EN:
-    footprint = "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm"
-    mpn = "MP1584EN-LF-Z"
+
+# Fixed 5V output variant (MODE/SYNC pin, 1MHz internal switching)
+# TI marking "2MB5" — matches Brave F7 reference board
+component LMR43620_5V:
+    footprint = "lib:TI_RPE0009B_VQFN-HR-9_2x2mm_P0.5mm"
+    mpn = "LMR43620MB5RPER"
     designator_prefix = "U"
-    signal sw ~ pin 1      # Switch node output — connects to inductor
-    signal en ~ pin 2      # Enable (active high, internal pullup)
-    signal comp ~ pin 3    # Error amplifier compensation output
-    signal fb ~ pin 4      # Feedback input (0.8V reference)
-    signal gnd ~ pin 5     # Ground (also thermal pad)
-    signal freq ~ pin 6    # Switching frequency set (resistor to GND)
-    signal vin ~ pin 7     # Input supply (4.5-28V)
-    signal bst ~ pin 8     # Bootstrap supply for high-side driver
+    signal rt_mode ~ pin 1  # MODE/SYNC — tie to GND for forced-PWM, float for PFM
+    signal pgood ~ pin 2    # Power good (open drain) — leave floating if unused
+    signal en ~ pin 3       # Enable/UVLO — internal pullup to VIN; tie to VIN for always-on
+    signal vin ~ pin 4      # Input supply (3-36V)
+    signal sw ~ pin 5       # Switch node — connect to inductor
+    signal boot ~ pin 6     # Bootstrap — 100nF cap to SW
+    signal vcc ~ pin 7      # Internal 3.3V LDO output — 1uF bypass cap to GND
+    signal fb ~ pin 8       # VOUT/FB — tie directly to 5V output (fixed variant)
+    signal gnd ~ pin 9      # Ground (largest pad, primary thermal path)
+
+# Adjustable output variant (RT pin for frequency set resistor)
+component LMR43620_ADJ:
+    footprint = "lib:TI_RPE0009B_VQFN-HR-9_2x2mm_P0.5mm"
+    mpn = "LMR43620RNXTRPER"
+    designator_prefix = "U"
+    signal rt ~ pin 1       # RT — resistor to GND sets switching frequency
+    signal pgood ~ pin 2    # Power good (open drain) — leave floating if unused
+    signal en ~ pin 3       # Enable/UVLO — internal pullup to VIN; tie to VIN for always-on
+    signal vin ~ pin 4      # Input supply (3-36V)
+    signal sw ~ pin 5       # Switch node — connect to inductor
+    signal boot ~ pin 6     # Bootstrap — 100nF cap to SW
+    signal vcc ~ pin 7      # Internal 3.3V LDO output — 1uF bypass cap to GND
+    signal fb ~ pin 8       # FB — connect to resistor divider midpoint
+    signal gnd ~ pin 9      # Ground (largest pad, primary thermal path)
 
 # ────────────────────────────────────────────────
 # AMS1117-3.3 LDO Voltage Regulator — SOT-223
@@ -128,13 +151,23 @@ component Cap_22uF_35V:
     signal p1 ~ pin 1
     signal p2 ~ pin 2
 
+# 4.7uF/50V X7R MLCC, 0805 package
+# Samsung CL21B475KBFNNNE — 50V rated for VBAT rail (up to 25.2V)
+# Smaller primary input cap for LMR43620 (synchronous, lower ripple current)
+component Cap_4u7F_50V:
+    footprint = "Capacitor_SMD:C_0805_2012Metric"
+    mpn = "CL21B475KBFNNNE"
+    designator_prefix = "C"
+    signal p1 ~ pin 1
+    signal p2 ~ pin 2
+
 # ────────────────────────────────────────────────
 # PowerSystem module: complete power distribution
 # ────────────────────────────────────────────────
 module PowerSystem:
     # ── Power rails exposed to rest of system ──
     signal vbat      # Raw battery input (7.4-25.2V, 2-6S LiPo)
-    signal rail_5v   # 5V regulated rail (from MP1584EN buck)
+    signal rail_5v   # 5V regulated rail (from LMR43620 5V buck)
     signal rail_3v3  # 3.3V regulated rail (from AMS1117)
     signal gnd       # Common ground reference
 
@@ -173,90 +206,77 @@ module PowerSystem:
     vbat ~ c_vbat_bulk_2.p1; c_vbat_bulk_2.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
-    # SECTION 2: 5V Buck Regulator (MP1584EN)
-    # Input: VBAT (7.4-25.2V), Output: 5V/3A
-    # Switching frequency set by R_freq, ~1MHz typical
-    # Feedback divider: 210k/40k for 5V output
-    # Compensation: series RC on COMP pin for loop stability
+    # SECTION 2: 5V Buck Regulator (TI LMR43620, fixed 5V)
+    # Input: VBAT (7.4-25.2V), Output: 5V/2A
+    # Fixed output variant — no feedback divider needed (FB ties to VOUT)
+    # Synchronous — no external Schottky catch diode
+    # Internally compensated — no external COMP network
+    # MODE/SYNC pin tied to GND for forced-PWM operation
     # ═══════════════════════════════════════════════
 
-    buck = new MP1584EN
+    buck = new LMR43620_5V
 
     # Input power connections
     buck.vin ~ vbat
     buck.gnd ~ gnd
 
     # Enable: tie to VIN for always-on operation
-    # (EN has internal pullup, but explicit connection to VIN is more robust)
     buck.en ~ vbat
 
-    # Input decoupling: 22uF/35V ceramic close to VIN pin
-    # Low ESR ceramic handles high-frequency switching current
-    # Pinned MPN — sits on VBAT rail (25.2V max), needs ≥35V rating
-    c_buck_in = new Cap_22uF_35V
+    # Input caps: 4.7uF/50V primary + 100nF/50V HF bypass on VIN
+    c_buck_in = new Cap_4u7F_50V
     buck.vin ~ c_buck_in.p1; c_buck_in.p2 ~ gnd
 
-    # Bootstrap capacitor: 100nF between BST and SW pins
-    # Charges during off-time, provides gate drive for high-side FET
+    c_buck_in_hf = new Capacitor
+    c_buck_in_hf.value = 100nF +/- 10%
+    c_buck_in_hf.package = "0402"
+    buck.vin ~ c_buck_in_hf.p1; c_buck_in_hf.p2 ~ gnd
+
+    # Bootstrap capacitor: 100nF from BOOT (pin 6) to SW (pin 5)
     c_bst = new Capacitor
     c_bst.value = 100nF +/- 10%
-    buck.bst ~ c_bst.p1; c_bst.p2 ~ buck.sw
+    buck.boot ~ c_bst.p1; c_bst.p2 ~ buck.sw
+
+    # VCC bypass: 1uF from VCC (internal 3.3V LDO, pin 7) to GND
+    c_vcc = new Capacitor
+    c_vcc.value = 1uF +/- 20%
+    c_vcc.package = "0402"
+    buck.vcc ~ c_vcc.p1; c_vcc.p2 ~ gnd
+
+    # MODE/SYNC (pin 1): tie to GND for forced-PWM (consistent switching freq)
+    buck.rt_mode ~ gnd
+
+    # FB (pin 8): tie directly to 5V output (fixed voltage variant)
+    buck.fb ~ rail_5v
 
     # Output inductor: 4.7uH/3A shielded, connects SW to output
     inductor = new Inductor_4u7
     buck.sw ~ inductor.p1; inductor.p2 ~ rail_5v
 
-    # Schottky diode: catch diode for buck converter
-    # Anode to GND, cathode to SW node — conducts during off-time
-    d_buck = new Schottky_SS34
-    d_buck.anode ~ gnd
-    d_buck.cathode ~ buck.sw
+    # Output decoupling: 2x 22uF ceramic close to output
+    c_buck_out_1 = new Capacitor
+    c_buck_out_1.value = 22uF +/- 20%
+    c_buck_out_1.footprint = "Capacitor_SMD:C_1206_3216Metric"
+    rail_5v ~ c_buck_out_1.p1; c_buck_out_1.p2 ~ gnd
 
-    # Output decoupling: 22uF/16V ceramic close to output
-    c_buck_out = new Capacitor
-    c_buck_out.value = 22uF +/- 20%
-    c_buck_out.footprint = "Capacitor_SMD:C_1206_3216Metric"
-    rail_5v ~ c_buck_out.p1; c_buck_out.p2 ~ gnd
-
-    # Feedback resistor divider: sets Vout = 0.8V * (1 + R_fb_top/R_fb_bot)
-    # 210kohm / 40kohm => 0.8 * (1 + 5.25) = 0.8 * 6.25 = 5.0V
-    # Using datasheet-recommended values for 5V output
-    r_fb_top = new Resistor
-    r_fb_top.value = 210kohm +/- 1%
-    rail_5v ~ r_fb_top.p1; r_fb_top.p2 ~ buck.fb
-
-    r_fb_bot = new Resistor
-    r_fb_bot.value = 40kohm +/- 1%
-    buck.fb ~ r_fb_bot.p1; r_fb_bot.p2 ~ gnd
-
-    # Frequency set resistor: 100kohm to GND gives ~300kHz switching
-    # Higher frequency = smaller inductor but more switching loss
-    # 300kHz is a good trade-off for drone applications (EMI vs efficiency)
-    r_freq = new Resistor
-    r_freq.value = 100kohm +/- 1%
-    buck.freq ~ r_freq.p1; r_freq.p2 ~ gnd
-
-    # Compensation network on COMP pin for loop stability
-    # Series RC: 100kohm + 150pF — tunes error amplifier bandwidth
-    r_comp = new Resistor
-    r_comp.value = 100kohm +/- 1%
-    c_comp = new Capacitor
-    c_comp.value = 150pF +/- 10%
-    buck.comp ~ r_comp.p1; r_comp.p2 ~ c_comp.p1; c_comp.p2 ~ gnd
+    c_buck_out_2 = new Capacitor
+    c_buck_out_2.value = 22uF +/- 20%
+    c_buck_out_2.footprint = "Capacitor_SMD:C_1206_3216Metric"
+    rail_5v ~ c_buck_out_2.p1; c_buck_out_2.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
-    # SECTION 2b: 10V VTX BEC (MP1584EN)
-    # Input: VBAT (7.4-25.2V), Output: 10V/2A (max 3A)
-    # Dedicated regulator for VTX power — matches Brave F7 reference
+    # SECTION 2b: 10V VTX BEC (TI LMR43620, adjustable)
+    # Input: VBAT (7.4-25.2V), Output: 10V/2A
+    # Adjustable variant with RT pin for frequency set
+    # Feedback divider: 90.9k/10k for 10V output (VREF=1.0V)
+    #   Vout = 1.0V * (1 + 90.9k/10k) = 1.0 * 10.09 = 10.09V
     # EN tied to VIN = always-on; PINIO1 P-FET switches output to connector
-    # Feedback divider: 115k/10k for 10V output
-    #   Vout = 0.8V * (1 + 115k/10k) = 0.8 * 12.5 = 10.0V
     # ═══════════════════════════════════════════════
 
     # Internal 10V rail (unswitched, between BEC output and PINIO1 P-FET)
     signal rail_10v
 
-    buck_10v = new MP1584EN
+    buck_10v = new LMR43620_ADJ
 
     # Input power connections
     buck_10v.vin ~ vbat
@@ -265,51 +285,58 @@ module PowerSystem:
     # Enable: tie to VIN for always-on operation
     buck_10v.en ~ vbat
 
-    # Input decoupling: 22uF/35V ceramic close to VIN pin
-    c_buck_10v_in = new Cap_22uF_35V
+    # Input caps: 4.7uF/50V primary + 100nF/50V HF bypass on VIN
+    c_buck_10v_in = new Cap_4u7F_50V
     buck_10v.vin ~ c_buck_10v_in.p1; c_buck_10v_in.p2 ~ gnd
 
-    # Bootstrap capacitor: 100nF between BST and SW pins
+    c_buck_10v_in_hf = new Capacitor
+    c_buck_10v_in_hf.value = 100nF +/- 10%
+    c_buck_10v_in_hf.package = "0402"
+    buck_10v.vin ~ c_buck_10v_in_hf.p1; c_buck_10v_in_hf.p2 ~ gnd
+
+    # Bootstrap capacitor: 100nF from BOOT (pin 6) to SW (pin 5)
     c_buck_10v_bst = new Capacitor
     c_buck_10v_bst.value = 100nF +/- 10%
-    buck_10v.bst ~ c_buck_10v_bst.p1; c_buck_10v_bst.p2 ~ buck_10v.sw
+    buck_10v.boot ~ c_buck_10v_bst.p1; c_buck_10v_bst.p2 ~ buck_10v.sw
+
+    # VCC bypass: 1uF from VCC (internal 3.3V LDO, pin 7) to GND
+    c_vcc_10v = new Capacitor
+    c_vcc_10v.value = 1uF +/- 20%
+    c_vcc_10v.package = "0402"
+    buck_10v.vcc ~ c_vcc_10v.p1; c_vcc_10v.p2 ~ gnd
+
+    # RT (pin 1): ~13kohm to GND sets ~1MHz switching frequency
+    # From LMR43620 datasheet Table 7-7: Rrt=12.7k for 1MHz
+    r_rt_10v = new Resistor
+    r_rt_10v.value = 13kohm +/- 1%
+    r_rt_10v.package = "0402"
+    buck_10v.rt ~ r_rt_10v.p1; r_rt_10v.p2 ~ gnd
 
     # Output inductor: 4.7uH/3A shielded
     inductor_10v = new Inductor_4u7
     buck_10v.sw ~ inductor_10v.p1; inductor_10v.p2 ~ rail_10v
 
-    # Schottky catch diode: anode to GND, cathode to SW node
-    d_buck_10v = new Schottky_SS34
-    d_buck_10v.anode ~ gnd
-    d_buck_10v.cathode ~ buck_10v.sw
+    # Output decoupling: 2x 22uF ceramic (needs ≥16V rating for 10V output)
+    c_buck_10v_out_1 = new Capacitor
+    c_buck_10v_out_1.value = 22uF +/- 20%
+    c_buck_10v_out_1.footprint = "Capacitor_SMD:C_1206_3216Metric"
+    rail_10v ~ c_buck_10v_out_1.p1; c_buck_10v_out_1.p2 ~ gnd
 
-    # Output decoupling: 22uF ceramic (needs ≥16V rating for 10V output)
-    c_buck_10v_out = new Capacitor
-    c_buck_10v_out.value = 22uF +/- 20%
-    c_buck_10v_out.footprint = "Capacitor_SMD:C_1206_3216Metric"
-    rail_10v ~ c_buck_10v_out.p1; c_buck_10v_out.p2 ~ gnd
+    c_buck_10v_out_2 = new Capacitor
+    c_buck_10v_out_2.value = 22uF +/- 20%
+    c_buck_10v_out_2.footprint = "Capacitor_SMD:C_1206_3216Metric"
+    rail_10v ~ c_buck_10v_out_2.p1; c_buck_10v_out_2.p2 ~ gnd
 
-    # Feedback resistor divider: 115k/10k for 10V output
-    # Vout = 0.8V * (1 + 115k/10k) = 0.8 * 12.5 = 10.0V
+    # Feedback resistor divider: 90.9k/10k for 10V output (VREF=1.0V)
+    # Vout = 1.0V * (1 + 90.9k/10k) = 10.09V
+    # Parallel impedance: 90.9k || 10k = 9.01kohm (within TI 5k-10k range)
     r_fb_10v_top = new Resistor
-    r_fb_10v_top.value = 115kohm +/- 1%
+    r_fb_10v_top.value = 90.9kohm +/- 1%
     rail_10v ~ r_fb_10v_top.p1; r_fb_10v_top.p2 ~ buck_10v.fb
 
     r_fb_10v_bot = new Resistor
     r_fb_10v_bot.value = 10kohm +/- 1%
     buck_10v.fb ~ r_fb_10v_bot.p1; r_fb_10v_bot.p2 ~ gnd
-
-    # Frequency set resistor: 100kohm (~300kHz switching)
-    r_freq_10v = new Resistor
-    r_freq_10v.value = 100kohm +/- 1%
-    buck_10v.freq ~ r_freq_10v.p1; r_freq_10v.p2 ~ gnd
-
-    # Compensation network: series RC for loop stability
-    r_comp_10v = new Resistor
-    r_comp_10v.value = 100kohm +/- 1%
-    c_comp_10v = new Capacitor
-    c_comp_10v.value = 150pF +/- 10%
-    buck_10v.comp ~ r_comp_10v.p1; r_comp_10v.p2 ~ c_comp_10v.p1; c_comp_10v.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
     # SECTION 3: 3.3V LDO (AMS1117-3.3)
@@ -428,21 +455,9 @@ module PowerSystem:
 
     # ═══════════════════════════════════════════════
     # SECTION 8: Bulk Decoupling
-    # 5V rail: 2x 22uF MLCC near BEC output (absorbs load transients)
+    # 5V rail: 2x 22uF output caps in SECTION 2 provide bulk (total ~44uF)
     # 3.3V rail: 22uF tantalum near LDO output (additional bulk storage)
     # ═══════════════════════════════════════════════
-
-    # 2x 22uF/16V MLCC in 1206 — flat profile, replaces cylindrical electrolytic
-    # Combined with c_buck_out (22uF), total 5V bulk is ~66uF nominal
-    c_5v_bulk_1 = new Capacitor
-    c_5v_bulk_1.value = 22uF +/- 20%
-    c_5v_bulk_1.footprint = "Capacitor_SMD:C_1206_3216Metric"
-    rail_5v ~ c_5v_bulk_1.p1; c_5v_bulk_1.p2 ~ gnd
-
-    c_5v_bulk_2 = new Capacitor
-    c_5v_bulk_2.value = 22uF +/- 20%
-    c_5v_bulk_2.footprint = "Capacitor_SMD:C_1206_3216Metric"
-    rail_5v ~ c_5v_bulk_2.p1; c_5v_bulk_2.p2 ~ gnd
 
     c_3v3_bulk = new Cap_22uF_10V_Tant
     rail_3v3 ~ c_3v3_bulk.p1; c_3v3_bulk.p2 ~ gnd

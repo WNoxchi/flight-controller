@@ -2,7 +2,7 @@
 # Top-level module composing all subsystems
 #
 # Architecture:
-#   VBAT → 5V Buck (MP1584EN) → 3.3V LDO (AMS1117) → MCU + peripherals
+#   VBAT → 5V Buck (TI LMR43620) → 3.3V LDO (AMS1117) → MCU + peripherals
 #   MCU (STM32F405RGT6) connects to:
 #     SPI1 → BMI270 IMU
 #     SPI2 → AT7456E OSD

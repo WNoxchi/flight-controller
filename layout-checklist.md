@@ -11,11 +11,11 @@ MCU (U4) center: (126, 126), body spans ~(121, 121) to (131, 131)
 1. **Decoupling caps**: Place as close as possible to the IC pin they serve. Via to GND plane directly from the cap's ground pad (shortest possible path).
 2. **Crystal traces**: Keep under 10mm, with ground pour underneath. No vias under crystal footprint.
 3. **IMU isolation**: 3mm clear zone around BMI270 — no copper pours, no high-current traces, no vias directly under the package.
-4. **Barometer isolation**: BMP390 must be >=10mm from MP1584EN (thermal), >=5mm from board edge (airflow/pressure). No copper pour under the pressure port.
-5. **Buck converter**: Input cap, output cap, catch diode, and inductor must be within 5mm of MP1584EN. Switching node (SW) trace keep-out >=0.5mm from analog signals.
+4. **Barometer isolation**: BMP390 must be >=10mm from LMR43620 buck converters (thermal), >=5mm from board edge (airflow/pressure). No copper pour under the pressure port.
+5. **Buck converter**: Input cap, output caps, and inductor must be within 5mm of LMR43620. Switching node (SW) trace keep-out >=0.5mm from analog signals. Thermal pad via array to L2 GND plane required.
 6. **USB differential pair**: 0.5mm clearance on each side of D+/D-. No parallel traces within 1mm. Continuous GND plane underneath.
 7. **Video traces** (VIN/VOUT on OSD): Treat as 75 ohm analog — keep short, avoid running parallel to digital/power traces. Ground pour underneath.
-8. **Heat sources**: Buck converters (U6, U1), LDO (U7), and power Schottky diodes (D2, D5) generate heat. Keep sensitive analog (IMU, baro, ADC traces) away.
+8. **Heat sources**: Buck converters (U6, U1 — LMR43620, heat dissipated via thermal pad), LDO (U7) generate heat. Keep sensitive analog (IMU, baro, ADC traces) away.
 9. **Grounding**: All ground connections should reach the L2 ground plane via short vias. Avoid splitting the ground plane under sensitive components.
 
 ---
@@ -86,7 +86,7 @@ Place near board center for minimal mechanical stress. Isolate from vibration, h
 - No copper pour directly under U3
 - No high-current traces within 3mm
 - SPI1 traces (PA5/PA6/PA7 + PC4 CS + PC5 EXTI) should be short and direct to MCU
-- Keep >=10mm from MP1584EN buck converters (heat + switching noise)
+- Keep >=10mm from LMR43620 buck converters (heat + switching noise)
 
 ---
 
@@ -112,53 +112,58 @@ U5 is a TSSOP-28 with pins on left (1-14) and right (15-28) sides.
 
 ---
 
-## Group 4: Power — 5V Buck (U6 — MP1584EN)
+## Group 4: Power — 5V Buck (U6 — LMR43620MB5RPER, fixed 5V)
 
 Place near ESC connector (J2) at rear edge. Hot zone — keep away from IMU and baro.
+LMR43620 is a VQFN-HR 2x2mm (much smaller than the old SOIC-8 MP1584EN), so the entire
+power group fits in a tighter area. Synchronous topology — no external catch diode.
 
 | Ref | What | Placement note |
 |-----|------|---------------|
-| U6 | MP1584EN (SOIC-8) | Near rear/ESC edge, within 5mm of L1 and D2 |
-| L1 | 4.7uH inductor (6.3x6.3mm) | Adjacent to U6 SW pin (pin 1). Short, wide trace. |
-| D2 | SS34 Schottky (SMA) | Between L1 and GND, close to U6 |
-| C26 | Buck input cap (1210) | As close as possible to U6 VIN (pin 8) and GND (pin 3) |
-| C27 | Buck output cap (1206) | At L1 output, close to U6 FB pin side |
-| C25 | Bootstrap cap (100nF) | Between U6 BST (pin 8) and SW (pin 1), tight |
-| C28 | Compensation cap | Near U6 COMP pin (pin 4) |
-| R12 | Compensation resistor | Near C28, connected to COMP |
-| R16 | Frequency set resistor | Near U6 FREQ pin (pin 7) |
-| R15 | FB top resistor (210k) | Near U6 FB pin (pin 5) |
-| R14 | FB bottom resistor (40k) | Near R15, divider to GND |
+| U6 | LMR43620 (VQFN-HR 2x2mm, 9-pad) | Near rear/ESC edge, within 5mm of L1. Thermal pad to GND plane via array. |
+| L1 | 4.7uH inductor (6.3x6.3mm) | Adjacent to U6 SW pin. Short, wide trace. |
+| C_5V_IN | Input cap 4.7µF/50V (0805) | As close as possible to U6 VIN and PGND pads |
+| C_5V_HF | VIN HF bypass 100nF (0402) | Right next to C_5V_IN, between VIN and PGND |
+| C_5V_VCC | VCC bypass 1µF (0402) | Within 2mm of U6 VCC pin |
+| C_5V_BST | Bootstrap cap 100nF (0402) | Between U6 BST and SW pins, tight |
+| C_5V_O1 | Output cap 22µF (0603) | At L1 output, close to VOUT/GND |
+| C_5V_O2 | Output cap 22µF (0603) | Adjacent to C_5V_O1 |
 | D4 | TVS (SMBJ26A, SMB) | At VBAT input, near C41/C42 |
 
 **Critical constraints:**
-- SW node (pin 1) is the noisiest trace — keep short and wide, >=0.5mm from analog signals
-- Input cap (C26) must be closest component to VIN/GND pins
-- Hot loop: C26 → U6 VIN → U6 GND → C26 (minimize area)
-- Output cap (C27) should connect directly to inductor output pad
+- SW node is the noisiest trace — keep short and wide, >=0.5mm from analog signals
+- Input cap (C_5V_IN) must be the closest component to VIN/PGND pins
+- Hot loop: C_5V_IN → U6 VIN → U6 PGND → C_5V_IN (minimize area)
+- Thermal pad (exposed pad) needs via array to L2 GND plane for heat dissipation
+- No external Schottky diode needed (synchronous internal FETs)
+- No feedback divider needed (fixed 5V variant)
+- No compensation network needed (internally compensated)
+- Output caps (C_5V_O1, C_5V_O2) should connect directly to inductor output pad
 - Keep entire power section >=10mm from IMU (U3) and baro (U9)
 
 ---
 
-## Group 5: Power — 10V VTX Buck (U1 — MP1584EN)
+## Group 5: Power — 10V VTX Buck (U1 — LMR43620RNXTRPER, adjustable)
 
-Same topology as 5V buck. Place near VTX connector (J7) side.
+Same IC family as 5V buck but adjustable output variant (RT pin instead of MODE/SYNC).
+Place near VTX connector (J7) side. VQFN-HR 2x2mm — much smaller than old SOIC-8.
 
 | Ref | What | Placement note |
 |-----|------|---------------|
-| U1 | MP1584EN (SOIC-8) | Near VTX connector side |
+| U1 | LMR43620 (VQFN-HR 2x2mm, 9-pad) | Near VTX connector side. Thermal pad to GND plane via array. |
 | L2 | 4.7uH inductor (6.3x6.3mm) | Adjacent to U1 SW pin |
-| D5 | SS34 Schottky (SMA) | Between L2 and GND |
-| C38 | Buck input cap (1210) | Tight to U1 VIN/GND |
-| C39 | Buck output cap (1206) | At L2 output |
-| C37 | Bootstrap cap (100nF) | Between U1 BST and SW |
-| C40 | Compensation cap | Near U1 COMP pin |
-| R27 | Compensation resistor | Near C40 |
-| R30 | Frequency set resistor | Near U1 FREQ pin |
-| R29 | FB top resistor (115k) | Near U1 FB pin |
-| R28 | FB bottom resistor (10k) | Near R29 |
+| C_10V_IN | Input cap 4.7µF/50V (0805) | Tight to U1 VIN/PGND pads |
+| C_10V_HF | VIN HF bypass 100nF (0402) | Right next to C_10V_IN |
+| C_10V_VCC | VCC bypass 1µF (0402) | Within 2mm of U1 VCC pin |
+| C_10V_BST | Bootstrap cap 100nF (0402) | Between U1 BST and SW |
+| C_10V_O1 | Output cap 22µF (0603) | At L2 output |
+| C_10V_O2 | Output cap 22µF (0603) | Adjacent to C_10V_O1 |
+| R_10V_FBT | FB top resistor 90.9kΩ (0402) | Near U1 FB pin |
+| R_10V_FBB | FB bottom resistor 10kΩ (0402) | Near R_10V_FBT, divider to GND |
+| R_10V_RT | RT frequency set 13kΩ (0402) | Near U1 RT pin |
 
-**Same layout rules as Group 4** — minimize hot loop area, keep SW trace short.
+**Same layout rules as Group 4** — minimize hot loop area, keep SW trace short. Thermal pad
+via array critical for heat dissipation. No external Schottky or compensation network.
 
 ---
 

@@ -9,7 +9,7 @@ The Brave F7 is a reference, not a clone target. Key intentional differences:
 
 - **MCU**: Brave F7 uses STM32F722RET6; this design uses STM32F405RGT6
 - **Input voltage**: Brave F7 supports 3-8S (up to 33.6V); this design targets 2-6S (up to 25.2V)
-- **BEC**: Brave F7 has 10V/2A + 5V/3A dual BEC; this design matches with 10V + 5V/3A dual BEC (both MP1584EN, 28V max input)
+- **BEC**: Brave F7 has 10V/2A + 5V/3A dual BEC; this design matches with 10V + 5V/2A dual BEC (both TI LMR43620, synchronous, 36V max input, NDAA-compliant)
 - **Board size**: Brave F7 is 37x37mm / 30x30mm mounting; this design matches at 37x37mm / 30x30mm
 - **Flash**: Brave F7 has 16Mbit; this design has 128Mbit (W25Q128)
 - **UARTs**: Brave F7 has 6; this design has 5 (F405 limitation)
@@ -61,6 +61,33 @@ causing 62 components to be excluded from the KiCad PCB. Added default 0402
 footprints, with overrides for larger caps (0603/0805/1206). Replaced generic
 `ElectrolyticCap` with pinned components (`Cap_100uF_35V`, `Cap_22uF_10V_Tant`).
 Board outline (36x36mm, 1mm corner radii) added to PCB file.
+
+## REV-009: Replace MP1584EN buck converters with TI LMR43620 (NDAA compliance)
+
+**Status**: Fixed
+
+Replaced both MP1584EN (MPS, China-origin, SOIC-8) buck converters with TI LMR43620
+(VQFN-HR 2x2mm) for NDAA/non-Chinese-origin compliance. Key changes:
+
+- **5V BEC**: LMR43620MB5RPER (fixed 5V output, MODE/SYNC pin variant). No feedback
+  divider needed — internal fixed output eliminates 2 resistors.
+- **10V VTX BEC**: LMR43620RNXTRPER (adjustable output, RT pin variant). Feedback divider
+  changed: 90.9kΩ/10kΩ (VREF=1.0V, Vout = 1.0V × (1 + 9.09) = 10.09V). RT resistor
+  (13kΩ 0402) sets switching frequency.
+- **Synchronous topology**: Internal high-side and low-side FETs eliminate the external
+  SS34 Schottky catch diode for each buck (2x SS34 removed; one SS34 remains for USB
+  power OR).
+- **Internal compensation**: No external COMP network needed — removes compensation cap
+  and compensation resistor per buck.
+- **Package**: SOIC-8 (3.9×4.9mm) → VQFN-HR (2.1×2.1mm) — 77% smaller footprint area.
+  9-pad footprint (TI RPE0009B) with 4 L-shaped corner pads and exposed thermal pad.
+- **New passives per buck**: 1µF VCC bypass cap (0402), 100nF VIN HF bypass cap (0402).
+- **Input caps**: Changed from 22µF/35V 1210 to 4.7µF/50V 0805 per buck.
+- **Output caps**: Doubled to 2× 22µF per buck (was 1×). Separate 5V bulk caps (2× 22µF
+  1206) removed — output caps now provide sufficient bulk capacitance.
+- **Current rating**: 2A max (vs 3A for MP1584EN) — sufficient for drone loads.
+- **Files modified**: `src/power.ato`, `specs/power.md`, `WEIGHT_BUDGET.md`,
+  `layout-checklist.md`.
 
 ## REV-008: Single smaller boot button (Omron B3U-1000P)
 
