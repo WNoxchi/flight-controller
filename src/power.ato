@@ -45,18 +45,20 @@ component LMR43620_5V:
 
 
 # ────────────────────────────────────────────────
-# AMS1117-3.3 LDO Voltage Regulator — SOT-223
-# Pin mapping from AMS datasheet
-# Fixed 3.3V output, 1A max, dropout ~1.2V typical
-# Note: Tab (pin 4) is electrically connected to VOUT (pin 2)
+# TLV75533PDBV LDO Voltage Regulator — SOT-23-5
+# TI, NDAA-compliant (replaces Chinese AMS1117-3.3)
+# Fixed 3.3V output, 500mA max, dropout ~145mV typical
+# Stable with MLCC output caps (no ESR requirement)
 # ────────────────────────────────────────────────
-component AMS1117_3V3:
-    footprint = "Package_TO_SOT_SMD:SOT-223-3_TabPin2"
-    mpn = "AMS1117-3.3"
+component TLV75533:
+    footprint = "Package_TO_SOT_SMD:SOT-23-5"
+    mpn = "TLV75533PDBVR"
     designator_prefix = "U"
-    signal gnd ~ pin 1     # Ground
-    signal vout ~ pin 2    # Regulated 3.3V output (also connected to tab)
-    signal vin ~ pin 3     # Input supply (4.5-15V recommended)
+    signal vin ~ pin 1     # Input supply
+    signal gnd ~ pin 2     # Ground
+    signal en ~ pin 3      # Enable (active high, internal pullup)
+    # pin 4 = NC
+    signal vout ~ pin 5    # Regulated 3.3V output
 
 # ────────────────────────────────────────────────
 # SMBJ26A TVS Diode — SMB package
@@ -71,13 +73,13 @@ component TVS_SMBJ26A:
     signal cathode ~ pin 2 # Connect to VBAT (reverse-biased)
 
 # ────────────────────────────────────────────────
-# SS34 Schottky Diode — SMA package
-# 40V, 3A, Vf ~0.5V — used for USB power OR circuit
+# SS54 Schottky Diode — SMA package
+# 40V, 5A, Vf ~0.5V — used for USB power OR circuit
 # Forward: anode=VBUS, cathode=5V rail (current flows USB→rail)
 # ────────────────────────────────────────────────
-component Schottky_SS34:
+component Schottky_SS54:
     footprint = "Diode_SMD:D_SMA"
-    mpn = "SS34"
+    mpn = "SS54"
     designator_prefix = "D"
     signal anode ~ pin 1
     signal cathode ~ pin 2
@@ -111,9 +113,9 @@ component Inductor_2u2:
 
 # ────────────────────────────────────────────────
 # 47uF/10V tantalum, EIA-3528 (Kemet Case B)
-# For 3.3V rail bulk decoupling and AMS1117 output stability.
-# Tantalum provides necessary ESR (0.1-0.5ohm) for AMS1117 loop compensation —
-# low-ESR MLCC can cause oscillation on this LDO.
+# For 3.3V rail bulk decoupling and LDO output stability.
+# TLV75533 is stable with MLCC, but tantalum kept for bulk storage
+# and to match Brave F7 reference board.
 # 47uF matches Brave F7 reference (marking "476A").
 # ────────────────────────────────────────────────
 component Cap_47uF_10V_Tant:
@@ -347,15 +349,17 @@ module PowerSystem:
     rail_5v_vtx ~ c_buck_vtx_out_2.p1; c_buck_vtx_out_2.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
-    # SECTION 3: 3.3V LDO (AMS1117-3.3)
-    # Input: 5V rail, Output: 3.3V
-    # Power dissipation: (5.0-3.3) * 0.2A = 0.34W — trivial for SOT-223
+    # SECTION 3: 3.3V LDO (TI TLV75533, SOT-23-5)
+    # Input: 5V rail, Output: 3.3V, 500mA max
+    # Power dissipation: (5.0-3.3) * 0.2A = 0.34W — trivial for SOT-23-5
+    # EN tied to VIN (always enabled)
     # ═══════════════════════════════════════════════
 
-    ldo = new AMS1117_3V3
+    ldo = new TLV75533
     ldo.vin ~ rail_5v
     ldo.vout ~ rail_3v3
     ldo.gnd ~ gnd
+    ldo.en ~ rail_5v
 
     # Input cap: 10uF ceramic close to LDO input pin
     c_ldo_in = new Capacitor
@@ -363,9 +367,8 @@ module PowerSystem:
     c_ldo_in.footprint = "Capacitor_SMD:C_0805_2012Metric"
     ldo.vin ~ c_ldo_in.p1; c_ldo_in.p2 ~ gnd
 
-    # Output cap: 47uF tantalum close to LDO output (REQUIRED for stability)
-    # AMS1117 requires output cap with ESR in 0.1-0.5 ohm range (tantalum ideal)
-    # Low-ESR ceramic MLCCs can cause oscillation on AMS1117
+    # Output cap: 47uF tantalum (TLV75533 is stable with MLCC too, but
+    # keeping tantalum to match Brave F7 reference and for bulk storage)
     c_ldo_out = new Cap_47uF_10V_Tant
     ldo.vout ~ c_ldo_out.p1; c_ldo_out.p2 ~ gnd
 
@@ -443,14 +446,14 @@ module PowerSystem:
 
     # ═══════════════════════════════════════════════
     # SECTION 7: USB Power OR Circuit
-    # SS34 Schottky: VBUS -> 5V rail (forward biased when USB powered)
+    # SS54 Schottky: VBUS -> 5V rail (forward biased when USB powered)
     # Prevents backfeed from BEC 5V into USB host
     # When BEC is active (5V > VBUS-Vf), Schottky reverse-biased = no backfeed
     # When only USB: VBUS - 0.5V forward drop ~= 4.5V on 5V rail (enough for 3.3V LDO)
     # 4.7uF decoupling on VBUS after Schottky
     # ═══════════════════════════════════════════════
 
-    d_usb = new Schottky_SS34
+    d_usb = new Schottky_SS54
     d_usb.anode ~ usb_vbus
     d_usb.cathode ~ rail_5v
 

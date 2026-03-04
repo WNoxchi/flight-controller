@@ -154,7 +154,7 @@ Identical topology to Group 4 (REV-009b: dual-5V, matching Brave F7).
 
 | Ref | What | Placement note |
 |-----|------|---------------|
-| U7 | AMS1117-3.3 (SOT-223) | Between 5V rail and 3.3V rail, near MCU side |
+| U7 | TLV75533 (SOT-23-5) | Between 5V rail and 3.3V rail, near MCU side. EN tied to VIN. |
 | C30 | LDO input cap (0805) | Tight to U7 input pin |
 | C32 | LDO output cap (0805) | Tight to U7 output pin |
 | C23 | 3.3V bulk tantalum | [PLACED] Near LDO output |

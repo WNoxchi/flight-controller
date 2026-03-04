@@ -14,11 +14,12 @@
 - PGOOD: 100kΩ pullup to output rail (open-drain, indicates output in regulation)
 - Feeds: GPS, receiver, camera, LED strip, buzzer, USB VBUS out, 3.3V LDO input
 
-## 3.3V LDO (AMS1117-3.3)
-- Input: 5V, Output: 3.3V, SOT-223
-- Peak current ~193mA (well under 1A rating)
-- External: 10µF input cap, 47µF tantalum output cap (stability, matches Brave F7)
-- Power dissipation: (5.0-3.3V) × 0.2A = 0.34W — trivial for SOT-223
+## 3.3V LDO (TI TLV75533, NDAA-compliant)
+- Input: 5V, Output: 3.3V, SOT-23-5
+- Peak current ~193mA (well under 500mA rating)
+- External: 10µF input cap, 47µF tantalum output cap (bulk, matches Brave F7)
+- EN tied to VIN (always enabled). Stable with MLCC (no ESR requirement).
+- Power dissipation: (5.0-3.3V) × 0.2A = 0.34W
 - Feeds: STM32F405, BMI270, BMP390, AT7456E, W25Q128, I2C/SPI pullups
 
 ## VBAT Input Protection
@@ -41,7 +42,7 @@
 - Connected to PC0 (ADC_RSSI)
 
 ## USB-C Power OR
-- Schottky diode (SS34) from USB VBUS to 5V rail
+- Schottky diode (SS54, 5A/40V) from USB VBUS to 5V rail
 - Prevents backfeed from BEC into USB host
 - 4.7µF ceramic on VBUS after Schottky
 - FC runs on USB power alone for configuration
