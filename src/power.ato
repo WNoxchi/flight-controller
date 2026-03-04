@@ -4,7 +4,7 @@
 # Design decisions:
 # - TI LMR43620 synchronous buck converters (NDAA-compliant, TI fabs in Dallas TX)
 #   5V BEC: LMR43620MB5RPER (fixed 5V, MODE/SYNC variant, 1MHz internal)
-#   10V VTX BEC: LMR43620RNXTRPER (adjustable, RT variant)
+#   VTX BEC: LMR43620MB5RPER (fixed 5V, dedicated clean rail for VTX)
 #   VQFN-HR 2x2mm HotRod package (RPE0009B), 3-36V input, 2A max
 #   Synchronous topology — no external Schottky catch diode needed
 #   Internally compensated — no external COMP network needed
@@ -43,20 +43,6 @@ component LMR43620_5V:
     signal fb ~ pin 8       # VOUT/FB — tie directly to 5V output (fixed variant)
     signal gnd ~ pin 9      # Ground (largest pad, primary thermal path)
 
-# Adjustable output variant (RT pin for frequency set resistor)
-component LMR43620_ADJ:
-    footprint = "lib:TI_RPE0009B_VQFN-HR-9_2x2mm_P0.5mm"
-    mpn = "LMR43620RNXTRPER"
-    designator_prefix = "U"
-    signal rt ~ pin 1       # RT — resistor to GND sets switching frequency
-    signal pgood ~ pin 2    # Power good (open drain) — leave floating if unused
-    signal en ~ pin 3       # Enable/UVLO — internal pullup to VIN; tie to VIN for always-on
-    signal vin ~ pin 4      # Input supply (3-36V)
-    signal sw ~ pin 5       # Switch node — connect to inductor
-    signal boot ~ pin 6     # Bootstrap — 100nF cap to SW
-    signal vcc ~ pin 7      # Internal 3.3V LDO output — 1uF bypass cap to GND
-    signal fb ~ pin 8       # FB — connect to resistor divider midpoint
-    signal gnd ~ pin 9      # Ground (largest pad, primary thermal path)
 
 # ────────────────────────────────────────────────
 # AMS1117-3.3 LDO Voltage Regulator — SOT-223
@@ -111,13 +97,14 @@ component AO3401A:
     signal drain ~ pin 3   # Drain — connects to VTX VBAT_SW output
 
 # ────────────────────────────────────────────────
-# Shielded Power Inductor — for MP1584EN buck output
-# 4.7uH, rated >= 3A saturation current
-# Use shielded type to minimize EMI on sensitive analog circuits
+# Shielded Power Inductor — for LMR43620 buck output
+# 2.2uH, rated >= 2.5A saturation current, 4x4mm shielded
+# TI datasheet Table 8-2 recommends 2.2uH for 1MHz/5V output
+# Matches Brave F7 inductor (marking "C 222", 4.15x4.15mm)
 # ────────────────────────────────────────────────
-component Inductor_4u7:
-    footprint = "Inductor_SMD:L_6.3x6.3_H3"
-    mpn = "CDRH6D28HPNP-4R7NC"
+component Inductor_2u2:
+    footprint = "Inductor_SMD:L_Wuerth_MAPI-4020"
+    mpn = "74438356022"
     designator_prefix = "L"
     signal p1 ~ pin 1
     signal p2 ~ pin 2
@@ -175,8 +162,8 @@ module PowerSystem:
     signal adc_vbat  # Battery voltage sense output (to PC2, ~2.29V at 6S max)
     signal adc_curr  # Current sense filtered output (to PC1)
 
-    # ── 10V VTX power (switched) ──
-    signal vtx_10v   # PINIO1 switched 10V output (to VTX connector)
+    # ── VTX 5V power (switched via PINIO1) ──
+    signal vtx_5v    # PINIO1 switched 5V VTX output (to VTX connector)
     signal pinio1    # PINIO1 gate control input (from MCU PB2)
 
     # ── USB power OR input ──
@@ -220,8 +207,19 @@ module PowerSystem:
     buck.vin ~ vbat
     buck.gnd ~ gnd
 
-    # Enable: tie to VIN for always-on operation
-    buck.en ~ vbat
+    # EN/UVLO divider: sets under-voltage lockout threshold
+    # V_start = 1.22V × (1 + R_en_top/R_en_bot) = 1.22 × (1 + 430k/100k) = 6.47V rising
+    # Hysteresis from 3.4µA internal current: V_stop ≈ 5.5V falling
+    # Protects against operating on critically low battery
+    r_en_top = new Resistor
+    r_en_top.value = 430kohm +/- 1%
+    r_en_top.package = "0402"
+    vbat ~ r_en_top.p1; r_en_top.p2 ~ buck.en
+
+    r_en_bot = new Resistor
+    r_en_bot.value = 100kohm +/- 1%
+    r_en_bot.package = "0402"
+    buck.en ~ r_en_bot.p1; r_en_bot.p2 ~ gnd
 
     # Input caps: 4.7uF/50V primary + 100nF/50V HF bypass on VIN
     c_buck_in = new Cap_4u7F_50V
@@ -246,11 +244,18 @@ module PowerSystem:
     # MODE/SYNC (pin 1): tie to GND for forced-PWM (consistent switching freq)
     buck.rt_mode ~ gnd
 
+    # PGOOD (pin 2): open-drain, pullup to output rail
+    # Indicates output is in regulation — can be used for power sequencing
+    r_pgood = new Resistor
+    r_pgood.value = 100kohm +/- 1%
+    r_pgood.package = "0402"
+    buck.pgood ~ r_pgood.p1; r_pgood.p2 ~ rail_5v
+
     # FB (pin 8): tie directly to 5V output (fixed voltage variant)
     buck.fb ~ rail_5v
 
     # Output inductor: 4.7uH/3A shielded, connects SW to output
-    inductor = new Inductor_4u7
+    inductor = new Inductor_2u2
     buck.sw ~ inductor.p1; inductor.p2 ~ rail_5v
 
     # Output decoupling: 2x 22uF ceramic close to output
@@ -265,78 +270,80 @@ module PowerSystem:
     rail_5v ~ c_buck_out_2.p1; c_buck_out_2.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
-    # SECTION 2b: 10V VTX BEC (TI LMR43620, adjustable)
-    # Input: VBAT (7.4-25.2V), Output: 10V/2A
-    # Adjustable variant with RT pin for frequency set
-    # Feedback divider: 90.9k/10k for 10V output (VREF=1.0V)
-    #   Vout = 1.0V * (1 + 90.9k/10k) = 1.0 * 10.09 = 10.09V
-    # EN tied to VIN = always-on; PINIO1 P-FET switches output to connector
+    # SECTION 2b: 5V VTX BEC (TI LMR43620, fixed 5V)
+    # Input: VBAT (7.4-25.2V), Output: 5V/2A
+    # Dedicated clean 5V for VTX — isolated from main 5V rail to reduce
+    # video noise from digital switching on the main rail.
+    # Same fixed 5V variant as main BEC — matches Brave F7 dual-5V topology.
+    # PINIO1 P-FET switches output to VTX connector (pit mode control).
     # ═══════════════════════════════════════════════
 
-    # Internal 10V rail (unswitched, between BEC output and PINIO1 P-FET)
-    signal rail_10v
+    # Dedicated VTX 5V rail (unswitched, between BEC output and PINIO1 P-FET)
+    signal rail_5v_vtx
 
-    buck_10v = new LMR43620_ADJ
+    buck_vtx = new LMR43620_5V
 
     # Input power connections
-    buck_10v.vin ~ vbat
-    buck_10v.gnd ~ gnd
+    buck_vtx.vin ~ vbat
+    buck_vtx.gnd ~ gnd
 
-    # Enable: tie to VIN for always-on operation
-    buck_10v.en ~ vbat
+    # EN/UVLO divider: same threshold as main 5V buck (6.47V rising, ~5.5V falling)
+    r_en_vtx_top = new Resistor
+    r_en_vtx_top.value = 430kohm +/- 1%
+    r_en_vtx_top.package = "0402"
+    vbat ~ r_en_vtx_top.p1; r_en_vtx_top.p2 ~ buck_vtx.en
+
+    r_en_vtx_bot = new Resistor
+    r_en_vtx_bot.value = 100kohm +/- 1%
+    r_en_vtx_bot.package = "0402"
+    buck_vtx.en ~ r_en_vtx_bot.p1; r_en_vtx_bot.p2 ~ gnd
 
     # Input caps: 4.7uF/50V primary + 100nF/50V HF bypass on VIN
-    c_buck_10v_in = new Cap_4u7F_50V
-    buck_10v.vin ~ c_buck_10v_in.p1; c_buck_10v_in.p2 ~ gnd
+    c_buck_vtx_in = new Cap_4u7F_50V
+    buck_vtx.vin ~ c_buck_vtx_in.p1; c_buck_vtx_in.p2 ~ gnd
 
-    c_buck_10v_in_hf = new Capacitor
-    c_buck_10v_in_hf.value = 100nF +/- 10%
-    c_buck_10v_in_hf.package = "0402"
-    buck_10v.vin ~ c_buck_10v_in_hf.p1; c_buck_10v_in_hf.p2 ~ gnd
+    c_buck_vtx_in_hf = new Capacitor
+    c_buck_vtx_in_hf.value = 100nF +/- 10%
+    c_buck_vtx_in_hf.package = "0402"
+    buck_vtx.vin ~ c_buck_vtx_in_hf.p1; c_buck_vtx_in_hf.p2 ~ gnd
 
     # Bootstrap capacitor: 100nF from BOOT (pin 6) to SW (pin 5)
-    c_buck_10v_bst = new Capacitor
-    c_buck_10v_bst.value = 100nF +/- 10%
-    buck_10v.boot ~ c_buck_10v_bst.p1; c_buck_10v_bst.p2 ~ buck_10v.sw
+    c_buck_vtx_bst = new Capacitor
+    c_buck_vtx_bst.value = 100nF +/- 10%
+    buck_vtx.boot ~ c_buck_vtx_bst.p1; c_buck_vtx_bst.p2 ~ buck_vtx.sw
 
     # VCC bypass: 1uF from VCC (internal 3.3V LDO, pin 7) to GND
-    c_vcc_10v = new Capacitor
-    c_vcc_10v.value = 1uF +/- 20%
-    c_vcc_10v.package = "0402"
-    buck_10v.vcc ~ c_vcc_10v.p1; c_vcc_10v.p2 ~ gnd
+    c_vcc_vtx = new Capacitor
+    c_vcc_vtx.value = 1uF +/- 20%
+    c_vcc_vtx.package = "0402"
+    buck_vtx.vcc ~ c_vcc_vtx.p1; c_vcc_vtx.p2 ~ gnd
 
-    # RT (pin 1): ~13kohm to GND sets ~1MHz switching frequency
-    # From LMR43620 datasheet Table 7-7: Rrt=12.7k for 1MHz
-    r_rt_10v = new Resistor
-    r_rt_10v.value = 13kohm +/- 1%
-    r_rt_10v.package = "0402"
-    buck_10v.rt ~ r_rt_10v.p1; r_rt_10v.p2 ~ gnd
+    # PGOOD (pin 2): open-drain, pullup to output rail
+    r_pgood_vtx = new Resistor
+    r_pgood_vtx.value = 100kohm +/- 1%
+    r_pgood_vtx.package = "0402"
+    buck_vtx.pgood ~ r_pgood_vtx.p1; r_pgood_vtx.p2 ~ rail_5v_vtx
+
+    # MODE/SYNC (pin 1): tie to GND for forced-PWM
+    buck_vtx.rt_mode ~ gnd
+
+    # FB (pin 8): tie directly to 5V output (fixed voltage variant)
+    buck_vtx.fb ~ rail_5v_vtx
 
     # Output inductor: 4.7uH/3A shielded
-    inductor_10v = new Inductor_4u7
-    buck_10v.sw ~ inductor_10v.p1; inductor_10v.p2 ~ rail_10v
+    inductor_vtx = new Inductor_2u2
+    buck_vtx.sw ~ inductor_vtx.p1; inductor_vtx.p2 ~ rail_5v_vtx
 
-    # Output decoupling: 2x 22uF ceramic (needs ≥16V rating for 10V output)
-    c_buck_10v_out_1 = new Capacitor
-    c_buck_10v_out_1.value = 22uF +/- 20%
-    c_buck_10v_out_1.footprint = "Capacitor_SMD:C_1206_3216Metric"
-    rail_10v ~ c_buck_10v_out_1.p1; c_buck_10v_out_1.p2 ~ gnd
+    # Output decoupling: 2x 22uF ceramic close to output
+    c_buck_vtx_out_1 = new Capacitor
+    c_buck_vtx_out_1.value = 22uF +/- 20%
+    c_buck_vtx_out_1.footprint = "Capacitor_SMD:C_1206_3216Metric"
+    rail_5v_vtx ~ c_buck_vtx_out_1.p1; c_buck_vtx_out_1.p2 ~ gnd
 
-    c_buck_10v_out_2 = new Capacitor
-    c_buck_10v_out_2.value = 22uF +/- 20%
-    c_buck_10v_out_2.footprint = "Capacitor_SMD:C_1206_3216Metric"
-    rail_10v ~ c_buck_10v_out_2.p1; c_buck_10v_out_2.p2 ~ gnd
-
-    # Feedback resistor divider: 90.9k/10k for 10V output (VREF=1.0V)
-    # Vout = 1.0V * (1 + 90.9k/10k) = 10.09V
-    # Parallel impedance: 90.9k || 10k = 9.01kohm (within TI 5k-10k range)
-    r_fb_10v_top = new Resistor
-    r_fb_10v_top.value = 90.9kohm +/- 1%
-    rail_10v ~ r_fb_10v_top.p1; r_fb_10v_top.p2 ~ buck_10v.fb
-
-    r_fb_10v_bot = new Resistor
-    r_fb_10v_bot.value = 10kohm +/- 1%
-    buck_10v.fb ~ r_fb_10v_bot.p1; r_fb_10v_bot.p2 ~ gnd
+    c_buck_vtx_out_2 = new Capacitor
+    c_buck_vtx_out_2.value = 22uF +/- 20%
+    c_buck_vtx_out_2.footprint = "Capacitor_SMD:C_1206_3216Metric"
+    rail_5v_vtx ~ c_buck_vtx_out_2.p1; c_buck_vtx_out_2.p2 ~ gnd
 
     # ═══════════════════════════════════════════════
     # SECTION 3: 3.3V LDO (AMS1117-3.3)
@@ -399,14 +406,14 @@ module PowerSystem:
 
     # ═══════════════════════════════════════════════
     # SECTION 6: PINIO1 VTX Power Switch (N-FET + P-FET level-shifted)
-    # Controls 10V BEC output to VTX connector via PB2 (PINIO1)
+    # Controls VTX 5V BEC output to VTX connector via PB2 (PINIO1)
     #
     # N-FET (2N7002) level shifter required because PB2 (3.3V max) cannot
-    # directly drive P-FET gate to the 10V source voltage for reliable turn-off.
+    # directly drive P-FET gate to the 5V source voltage for reliable turn-off.
     # The N-FET inverts the signal and provides full rail-to-rail gate drive.
     #
-    # PB2 HIGH → N-FET ON → P-FET gate at GND → Vgs=-10V → P-FET ON → VTX powered
-    # PB2 LOW  → N-FET OFF → pullup pulls gate to 10V → Vgs=0 → P-FET OFF → VTX off
+    # PB2 HIGH → N-FET ON → P-FET gate at GND → Vgs=-5V → P-FET ON → VTX powered
+    # PB2 LOW  → N-FET OFF → pullup pulls gate to 5V → Vgs=0 → P-FET OFF → VTX off
     #
     # Default state: PB2 has 10k pulldown (BOOT1) → VTX off at power-on.
     # Betaflight firmware sets PB2 high at boot to enable VTX power.
@@ -422,15 +429,15 @@ module PowerSystem:
     pinio1 ~ r_pinio_gate.p1; r_pinio_gate.p2 ~ q_pinio_nfet.gate
     q_pinio_nfet.source ~ gnd
 
-    # P-FET gate pullup: 100kΩ to rail_10v (holds P-FET OFF when N-FET is off)
+    # P-FET gate pullup: 100kΩ to rail_5v_vtx (holds P-FET OFF when N-FET is off)
     r_pinio_pullup = new Resistor
     r_pinio_pullup.value = 100kohm +/- 1%
-    q_pinio_nfet.drain ~ r_pinio_pullup.p1; r_pinio_pullup.p2 ~ rail_10v
+    q_pinio_nfet.drain ~ r_pinio_pullup.p1; r_pinio_pullup.p2 ~ rail_5v_vtx
 
-    # P-FET high-side switch: source=10V rail, drain=VTX connector output
+    # P-FET high-side switch: source=5V VTX rail, drain=VTX connector output
     pinio_fet = new AO3401A
-    pinio_fet.source ~ rail_10v
-    pinio_fet.drain ~ vtx_10v
+    pinio_fet.source ~ rail_5v_vtx
+    pinio_fet.drain ~ vtx_5v
     q_pinio_nfet.drain ~ pinio_fet.gate
 
     # ═══════════════════════════════════════════════

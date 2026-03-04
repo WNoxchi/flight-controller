@@ -114,7 +114,7 @@ module TF405:
     cam_conn.cam_ctrl ~ mcu.pb3
     # VTX power: 10V regulated BEC, switchable via PINIO1 (N-FET + P-FET in power.ato)
     # Allows Betaflight to power-cycle the VTX for pit mode / channel changes
-    vtx_conn.v10 ~ power.vtx_10v
+    vtx_conn.v5 ~ power.vtx_5v
     vtx_conn.gnd ~ power.gnd
     # VTX control: full UART5 for SmartAudio / IRC Tramp bidirectional protocol
     # TX used for SmartAudio; RX enables IRC Tramp and SmartAudio v2.1 responses
