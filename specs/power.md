@@ -17,7 +17,7 @@
 ## 3.3V LDO (AMS1117-3.3)
 - Input: 5V, Output: 3.3V, SOT-223
 - Peak current ~193mA (well under 1A rating)
-- External: 10µF input cap, 22µF tantalum output cap (stability)
+- External: 10µF input cap, 47µF tantalum output cap (stability, matches Brave F7)
 - Power dissipation: (5.0-3.3V) × 0.2A = 0.34W — trivial for SOT-223
 - Feeds: STM32F405, BMI270, BMP390, AT7456E, W25Q128, I2C/SPI pullups
 
@@ -73,7 +73,7 @@
 - Per-chip 100nF on BMI270, BMP390, AT7456E, W25Q128
 - AT7456E AVDD: 100nF + ferrite bead (isolated analog supply)
 - 5V bulk: 2x 22µF MLCC output caps on 5V buck (no separate bulk cap needed)
-- 3.3V bulk: 22µF tantalum near LDO
+- 3.3V bulk: 47µF tantalum near LDO
 
 ## Assert Constraints
 These should be validated in atopile with `assert` statements:

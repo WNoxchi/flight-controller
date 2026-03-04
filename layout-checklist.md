@@ -72,7 +72,7 @@ All components placed around U4 perimeter. Each decoupling cap on same side as i
 
 ---
 
-## Group 2: IMU (U3 — BMI270)
+## Group 2: IMU (U3 — BMI270) [PLACED]
 
 Place near board center for minimal mechanical stress. Isolate from vibration, heat, and EMI.
 
@@ -90,7 +90,7 @@ Place near board center for minimal mechanical stress. Isolate from vibration, h
 
 ---
 
-## Group 3: OSD Support (around U5 — AT7456E, already placed)
+## Group 3: OSD Support (around U5 — AT7456E, already placed) [PLACED]
 
 U5 is a TSSOP-28 with pins on left (1-14) and right (15-28) sides.
 
@@ -261,8 +261,8 @@ Identical topology to Group 4 (REV-009b: dual-5V, matching Brave F7).
 ## Placement Priority Order
 
 1. ~~Group 1: MCU decoupling~~ [DONE]
-2. Group 2: IMU — most sensitive, sets center placement
-3. Group 3: OSD support — caps near already-placed U5
+2. ~~Group 2: IMU~~ [DONE]
+3. ~~Group 3: OSD support~~ [DONE]
 4. ~~Group 4: 5V buck~~ [DONE]
 5. ~~Group 5: 5V VTX buck~~ [DONE]
 6. Group 6: LDO + PINIO
