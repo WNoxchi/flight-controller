@@ -211,7 +211,7 @@ Identical topology to Group 4 (REV-009b: dual-5V, matching Brave F7).
 
 | Ref | What | Placement note |
 |-----|------|---------------|
-| J6 | USB-C connector | [PLACED] Board edge |
+| J6 | USB-C connector (HRO TYPE-C-31-M-12) | [PLACED] Board edge — needs footprint swap |
 | U8 | USBLC6-2SC6 ESD (SOT-23-6) | Within 5mm of J6, before any other component on D+/D- |
 | R24 | USB D- series (22 ohm) | Between U8 and MCU PA11 |
 | R25 | USB D+ series (22 ohm) | Between U8 and MCU PA12 |

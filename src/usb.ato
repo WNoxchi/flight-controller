@@ -1,8 +1,9 @@
 # USB-C Interface — See specs/usb-c.md
 #
 # Design decisions:
-# - GCT USB4085-GF-A: 16-pin mid-mount USB-C receptacle (USB 2.0 only)
-#   Pad names: A1/A12/B1/B12=GND, A4/A9/B4/B9=VBUS, A5=CC1, B5=CC2,
+# - HRO TYPE-C-31-M-12: 12-pin USB-C receptacle (USB 2.0 only)
+#   4 THT mounting tabs + SMD signal pads. Same pad names as GCT USB4085:
+#   A1/A12/B1/B12=GND, A4/A9/B4/B9=VBUS, A5=CC1, B5=CC2,
 #   A6/B6=D+, A7/B7=D-, A8=SBU1, B8=SBU2, S1=shield
 #   For USB 2.0 device mode, D1+/D1- and D2+/D2- are shorted together
 #   (reversible connector, same data on both orientations)
@@ -22,13 +23,13 @@
 from "mcu.ato" import Capacitor, Resistor
 
 # ────────────────────────────────────────────────
-# GCT USB4085-GF-A USB-C Receptacle (16-pin, mid-mount SMD)
+# HRO TYPE-C-31-M-12 USB-C Receptacle (12-pin, 4 THT mounting tabs + SMD signal pads)
 # USB 2.0 only — no SuperSpeed pins (A2/A3/A10/A11/B2/B3/B10/B11 omitted)
-# Pad names per GCT datasheet and KiCad footprint library
+# Pad names per HRO datasheet and KiCad footprint library
 # ────────────────────────────────────────────────
-component USB4085:
-    footprint = "Connector_USB:USB_C_Receptacle_GCT_USB4085"
-    mpn = "USB4085-GF-A"
+component TYPE_C_31_M_12:
+    footprint = "Connector_USB:USB_C_Receptacle_HRO_TYPE-C-31-M-12"
+    mpn = "TYPE-C-31-M-12"
     designator_prefix = "J"
 
     # Ground pads (4 total)
@@ -97,11 +98,11 @@ module USB_C_Interface:
     signal vbus      # Raw VBUS output → power.usb_vbus for power OR
 
     # ═══════════════════════════════════════════════
-    # SECTION 1: USB-C Connector (GCT USB4085-GF-A)
-    # 16-pin mid-mount SMD, USB 2.0 only
+    # SECTION 1: USB-C Connector (HRO TYPE-C-31-M-12)
+    # 12-pin, 4 THT mounting tabs + SMD signal pads, USB 2.0 only
     # ═══════════════════════════════════════════════
 
-    conn = new USB4085
+    conn = new TYPE_C_31_M_12
 
     # All GND pads tied to system ground
     conn.gnd_a1 ~ gnd
