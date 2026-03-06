@@ -52,7 +52,7 @@ fit standard whoop/mini quad FC mounting stacks. All dimensions in millimeters u
 |-------------------------|-----------------|-------------|----------------|
 | USB-C (USB4085-GF-A)   | Mid-mount       | 3.31        | Top (L1)       |
 | JST-SH connectors (x6) | Through-hole    | 4.25        | Top (L1) edge  |
-| MLT-8530 buzzer         | SMD 8.5x8.5     | 3.0         | Top (L1)       |
+| CMT-4023S buzzer        | SMD 4x4         | 2.0         | Top (L1)       |
 | BOOT0 button (x1)      | SMD 3.0x2.5     | 1.6         | Top (L1)       |
 | Electrolytic caps (x2)  | SMD 6.3x7.7     | 7.7         | Top (L1)       |
 | Buck inductor           | SMD 6.3x6.3     | 3.0         | Top (L1)       |

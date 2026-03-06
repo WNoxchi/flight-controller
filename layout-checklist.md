@@ -153,7 +153,7 @@ Adjustable variant with RT resistor and FB divider for 10V output (REV-010).
 
 ---
 
-## Group 6: Power — LDO + PINIO (U7, Q2, Q4)
+## Group 6: Power — LDO + PINIO (U7, Q2, Q4) [PLACED]
 
 | Ref | What | Placement note |
 |-----|------|---------------|
@@ -235,7 +235,7 @@ Adjustable variant with RT resistor and FB divider for 10V output (REV-010).
 
 | Ref | What | Placement note |
 |-----|------|---------------|
-| BZ1 | MLT-8530 buzzer (8.5x8.5mm) | Board edge, away from IMU (vibration source) |
+| BZ1 | CMT-4023S buzzer (4x4mm) | Board edge, away from IMU (vibration source) |
 | Q1 | Beeper N-FET (SOT-23) | Near BZ1 |
 | R3 | Beeper gate resistor | Between MCU PB1 and Q1 gate |
 | D1 | Status LED (0603) | Board edge, visible |
@@ -268,7 +268,7 @@ Adjustable variant with RT resistor and FB divider for 10V output (REV-010).
 3. ~~Group 3: OSD support~~ [DONE]
 4. ~~Group 4: 5V buck~~ [DONE]
 5. ~~Group 5: 5V VTX buck~~ [DONE]
-6. Group 6: LDO + PINIO
+6. ~~Group 6: LDO + PINIO~~ [DONE]
 7. Group 7: Power input + sensing
 8. Group 8: Flash support
 9. Group 9: Baro support

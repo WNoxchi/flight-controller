@@ -54,14 +54,15 @@ module StatusLED:
     assert r_led.value within 900ohm to 1.1kohm
 
 # ────────────────────────────────────────────────
-# MLT-8530 Passive Piezo Buzzer (SMD, 8.5x8.5x3mm)
-# Standard on Betaflight FCs. Passive type requires square-wave
-# drive from MCU (Betaflight generates ~4kHz via timer).
-# Resonant freq: 2.7kHz, 80dB SPL, coil resistance 12±3Ω.
+# Same Sky CMT-4023S Passive Magnetic Buzzer (SMD, 4x4x2mm)
+# NDAA-compliant (Same Sky, US-headquartered). Passive type
+# requires square-wave drive from MCU (Betaflight generates ~4kHz).
+# Rated freq: 4kHz, 70dB SPL @ 10cm, coil resistance 14-20Ω.
+# 78% smaller than MLT-8530 (16mm² vs 72mm²).
 # ────────────────────────────────────────────────
-component Buzzer_MLT8530:
-    footprint = "lib:Buzzer_SMD_MLT-8530_8.5x8.5mm"
-    mpn = "MLT-8530"
+component Buzzer_CMT4023S:
+    footprint = "lib:Buzzer_SMD_CMT-4023S_4x4mm"
+    mpn = "CMT-4023S-SMT-TR"
     designator_prefix = "BZ"
     signal positive ~ pin 1
     signal negative ~ pin 2
@@ -91,9 +92,9 @@ module Beeper:
     # Source to ground (N-FET low-side switch topology)
     q_beep.source ~ gnd
 
-    # Passive buzzer: MLT-8530 (8.5mm SMD, 3.6V nominal, 80dB SPL)
+    # Passive buzzer: CMT-4023S (4mm SMD, 3V nominal, 70dB SPL)
     # Connected between 5V supply and FET drain — FET switches ground path
-    buzzer = new Buzzer_MLT8530
+    buzzer = new Buzzer_CMT4023S
     vdd ~ buzzer.positive
     buzzer.negative ~ q_beep.drain
 
