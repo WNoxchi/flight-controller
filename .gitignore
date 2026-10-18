@@ -5,6 +5,23 @@
 # Ralph loop log
 .looplog.txt
 
+# Generated atopile cache
+.ato/
+
+# KiCad local state, caches, locks, and backups
+*.kicad_prl
+fp-info-cache
+*-backups/
+*.kicad_pcb-bak
+*.kicad_sch-bak
+*.kicad_pro-bak
+*.kicad_bak
+~*.lck
+
+# Machine-specific MCP configuration (contains absolute local tool paths)
+/.mcp.json
+/.cursor/mcp.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
