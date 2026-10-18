@@ -223,7 +223,7 @@ module MCU_F405:
     signal pa14  # SWCLK
 
     # Spare
-    signal pa4   # Servo/detonator (DAC)
+    signal pa4   # General-purpose peripheral signal (GPIO/DAC)
 
     # ── STM32F405RGT6 IC ──
     mcu = new STM32F405RGT6

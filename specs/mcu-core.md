@@ -26,7 +26,7 @@ The MCU is the central component. STM32F405RGT6 in LQFP-64 package, 168MHz Corte
 - USB 2.0 FS on PA11/PA12
 - Misc GPIO: PB0 (LED), PB1 (beeper), PB3 (camera control), PB6 (LED strip)
 - PB2 (PINIO1 via P-FET)
-- PA4 (servo/detonator solder pad, DAC capable)
+- PA4 (general-purpose peripheral signal solder pad, GPIO/DAC capable)
 
 ## Assert Constraints
 These should be validated in atopile with `assert` statements:

@@ -145,21 +145,18 @@ module CameraControl:
     gpio ~ pad
 
 # ────────────────────────────────────────────────
-# PA4 Breakout (servo/detonator solder pad)
-# PA4 is DAC_OUT1 (12-bit analog output) and TIM2_CH1 (PWM capable).
-# Betaflight uses this for servo output or pyro/detonator trigger.
-# Direct GPIO breakout to solder pad — no passive components needed.
-# The DAC or timer peripheral is configured in firmware; hardware is
-# just a direct connection from the MCU pin to an exposed pad.
+# PA4 Breakout (general-purpose peripheral signal solder pad)
+# PA4 supports GPIO and DAC_OUT1 (12-bit analog output).
+# Firmware defines the peripheral signal behavior.
+# This module describes a direct connection from the MCU pin to the pad.
 # ────────────────────────────────────────────────
 module PA4Breakout:
-    signal gpio  # PA4, MCU-side (DAC_OUT1 / TIM2_CH1 / GPIO)
-    signal pad   # Solder pad output for servo/detonator wire
+    signal gpio  # PA4, MCU-side (DAC_OUT1 / GPIO)
+    signal pad   # General-purpose peripheral signal output
     signal gnd
 
     # Direct passthrough: GPIO → solder pad
-    # No series resistor or protection needed — servo signal is low-frequency
-    # PWM (~50Hz) or DC analog, and the pad-to-device cable is short.
+    # Interface electrical requirements depend on the connected peripheral.
     gpio ~ pad
 
 # ────────────────────────────────────────────────

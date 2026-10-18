@@ -632,19 +632,19 @@
 
 ---
 
-### TASK-017: Implement PA4 Servo/Detonator Pad ✅ COMPLETE
+### TASK-017: Implement PA4 Peripheral Signal Pad ✅ COMPLETE
 **Spec**: `specs/video-vtx-misc.md` (line 7)
 **File**: `src/misc.ato`, `src/tf405.ato`
 **Completed**: 2026-03-01
-**Priority**: LOW - Optional servo/pyro channel
+**Priority**: LOW - Optional peripheral signal channel
 **Dependencies**: None
 
 **Implementation Summary**:
 - **PA4Breakout module**: PA4 GPIO → solder pad direct passthrough
   - `gpio` signal (MCU-side, PA4) connected directly to `pad` signal (solder pad output)
-  - No passive components needed — servo signal is low-frequency PWM (~50Hz) or DC analog
-  - PA4 is DAC_OUT1 (12-bit analog output) and TIM2_CH1 (PWM capable)
-  - Betaflight uses this for servo output or pyro/detonator trigger
+  - Direct signal connection; electrical requirements depend on the peripheral
+  - PA4 supports GPIO and DAC_OUT1 (12-bit analog output)
+  - Firmware defines the peripheral signal behavior; hardware-timer PWM servo support is not specified
 - **Top-level wiring**: `pa4_out.gpio ~ mcu.pa4`, `pa4_out.gnd ~ power.gnd`
 - 0 new components (pure signal routing), no assert constraints per spec
 - `ato build` passes cleanly, 35 total assertions still passing

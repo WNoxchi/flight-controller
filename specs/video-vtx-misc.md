@@ -28,7 +28,7 @@ Video does NOT pass through MCU.
 - LED_STRIP: PB6 (WS2812 data, TIM4_CH1)
 - CAMERA_CONTROL: PB3 (Betaflight camera OSD joystick)
 - PINIO1: PB2 (switchable 10V VTX rail, see power spec)
-- PA4: servo/detonator solder pad (DAC capable, TIM2 or GPIO)
+- PA4: general-purpose signal output for communicating with peripherals (GPIO/DAC)
 
 ## Assert Constraints
 ```

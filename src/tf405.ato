@@ -153,7 +153,7 @@ module TF405:
 
     # Camera control now routed through camera connector pin 4 (see video path wiring above)
 
-    # PA4 breakout: servo/detonator solder pad (DAC_OUT1 / TIM2_CH1)
+    # PA4 breakout: general-purpose peripheral signal solder pad (GPIO/DAC_OUT1)
     pa4_out = new PA4Breakout
     pa4_out.gpio ~ mcu.pa4
     pa4_out.gnd ~ power.gnd

@@ -122,7 +122,7 @@ Recommended edge assignment based on typical quad frame geometry:
 | LED 5V  | 5V rail    | 1.5 x 2.5   | LED strip power                       |
 | LED GND | Ground     | 1.5 x 2.5   | LED strip return                      |
 | CAM     | PB3        | 1.0 x 2.0   | Camera control OSD joystick           |
-| PA4     | PA4        | 1.0 x 2.0   | Servo/detonator (DAC/PWM)             |
+| PA4     | PA4        | 1.0 x 2.0   | Peripheral signal output (GPIO/DAC)  |
 
 ### SBUS Selection Pads (top side, near RX connector)
 - Three-pad solder bridge: center pad = PA10 (UART1_RX), outer pads = direct RX and
